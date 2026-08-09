@@ -380,6 +380,8 @@ class PickAICatalogTests(unittest.TestCase):
 
     def test_origin_inventory_overrides_delayed_pickai_stock(self) -> None:
         class FakeOriginShop:
+            searched_keywords: list[str] = []
+
             def __init__(self) -> None:
                 self.fetcher = type("Fetcher", (), {"close": lambda _self: None})()
 
@@ -395,7 +397,8 @@ class PickAICatalogTests(unittest.TestCase):
                     url="https://pay.ldxp.cn/item/plus1",
                 )
 
-            def search(self, *_args, **_kwargs):
+            def search(self, _token: str, keywords: str, *_args, **_kwargs):
+                self.searched_keywords.append(keywords)
                 return [
                     ProductRecord(
                         external_id="r:plus1",
@@ -446,6 +449,7 @@ class PickAICatalogTests(unittest.TestCase):
         self.assertEqual(product.stock, 0)
         self.assertEqual(product.status, ProductStatus.OUT)
         self.assertIsNotNone(product.inventory_verified_at)
+        self.assertEqual(FakeOriginShop.searched_keywords, ["GPT Plus 独享账号"])
 
     def test_pickai_refresh_does_not_overwrite_recent_origin_verification(self) -> None:
         db_engine = memory_engine()

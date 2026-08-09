@@ -13,7 +13,7 @@
 
 | 层 | 选型 | 说明 |
 |---|---|---|
-| 公开请求 | `curl_cffi`（impersonate=chrome） | 保持浏览器 TLS/JA3 兼容；真人滑块交给隔离 Edge 完成 |
+| 公开请求 | `curl_cffi`（impersonate=chrome） | 保持浏览器 TLS/JA3 兼容；全局 TUN 下自动绑定物理网卡直连国内源站 |
 | 公开页解析 | `selectolax` | 比 BeautifulSoup 快很多 |
 | 后端 | FastAPI + SQLModel + SQLite | 本地零配置，缓存当前商品结果 |
 | 前端 | React + Vite + TS + Tailwind v4 | TanStack Query |
@@ -116,11 +116,21 @@ npm run desktop:build
 最终安装包位于：
 
 ```text
-frontend/src-tauri/target/release/bundle/nsis/比牌_0.2.70_x64-setup.exe
+frontend/src-tauri/target/release/bundle/nsis/比牌_0.2.71_x64-setup.exe
 ```
 
 便携版和安装版都不需要用户另装 Python。数据库、日志和凭据保存在
 `%LOCALAPPDATA%\Bipai`，卸载或升级应用时不会因安装目录权限而丢失。
+
+## 代理 / TUN 兼容
+
+无需关闭 Clash、fcclient、sing-box 等代理客户端。Windows 桌面版会为
+`ldxp.cn`、`pickai.cc`、`catfk.com` 及阿里验证资源自动选择带真实网关的物理网卡，
+使用本地路由器 DNS 解析真实地址，并把源站连接绑定到该网卡；其他应用仍按原来的
+全局代理/TUN 配置运行。隔离 Edge 需要真人验证时，也只通过应用内部监听在
+`127.0.0.1` 的受限 CONNECT 代理访问这些白名单域名，不会开放局域网代理。
+
+如网络环境禁止物理直连，可在启动前设置 `PRICEAI_PHYSICAL_DIRECT=0` 回退到系统路由。
 
 ## 接真实数据
 

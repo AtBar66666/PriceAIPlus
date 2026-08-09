@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from .config import settings
 from .crawler.pickai_catalog import PICKAI_SHOP_NAME, is_strict_realtime_query
 from .db import get_session, init_db
+from .direct_route import DIRECT_HOST_SUFFIXES, ensure_direct_proxy
 from .models import Product, ProductStatus, Shop, SourceKind
 from .pickai_index import pickai_index
 from .retail_index import retail_index
@@ -130,6 +131,27 @@ def health() -> dict:
         "has_token": bool(settings.merchant_token),
         "has_catfk_token": bool(settings.catfk_merchant_token),
         "has_public_clearance": bool(settings.public_clearance_cookie),
+    }
+
+
+@app.get("/api/network-route")
+def network_route() -> dict:
+    """给隔离 Edge 提供仅监听本机的物理网卡 CONNECT 代理。"""
+    result = ensure_direct_proxy()
+    if result is None:
+        return {
+            "available": False,
+            "proxy_port": 0,
+            "mode": "system",
+            "protected_suffixes": list(DIRECT_HOST_SUFFIXES),
+        }
+    port, route = result
+    return {
+        "available": True,
+        "proxy_port": port,
+        "mode": "physical_direct",
+        "interface": route.interface_alias,
+        "protected_suffixes": list(DIRECT_HOST_SUFFIXES),
     }
 
 

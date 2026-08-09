@@ -25,6 +25,7 @@ from tenacity import (
 )
 
 from ..config import settings
+from ..direct_route import direct_target_for_url
 
 
 class BlockedError(RuntimeError):
@@ -384,9 +385,16 @@ class Fetcher:
         # CURLOPT_PROXY，避免用户级 HTTP(S)_PROXY 指向已关闭的本地代理时，
         # libcurl 仍把全部搜索请求发往该端口。curl_cffi 0.15 中仅设置
         # trust_env=False 不足以阻止 libcurl 读取这些环境变量。
+        curl_options: dict[CurlOpt, Any] = {CurlOpt.PROXY: ""}
+        self.direct_target = direct_target_for_url(self.base_url)
+        if self.direct_target is not None:
+            # 系统代理关闭后，TUN/Fake-IP 仍会接管请求。绑定真实物理地址并
+            # 写入由本地网关解析的真实 A 记录，源站看到的就是稳定国内出口。
+            curl_options[CurlOpt.INTERFACE] = self.direct_target.route.interface_ip
+            curl_options[CurlOpt.RESOLVE] = [self.direct_target.curl_resolve_entry]
         self.session = cffi.Session(
             impersonate=settings.impersonate,
-            curl_options={CurlOpt.PROXY: ""},
+            curl_options=curl_options,
         )
 
     def _may_send_merchant_credentials(self, url: str) -> bool:

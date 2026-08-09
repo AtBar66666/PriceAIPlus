@@ -200,12 +200,45 @@ class FakeClosedItemFetcher:
 
 class RetailShopTests(unittest.TestCase):
     def test_fetcher_forces_official_requests_to_use_direct_connection(self) -> None:
-        with patch("app.crawler.session.cffi.Session") as session_factory:
+        with (
+            patch("app.crawler.session.direct_target_for_url", return_value=None),
+            patch("app.crawler.session.cffi.Session") as session_factory,
+        ):
             fetcher = Fetcher(credential_policy="public")
 
         session_factory.assert_called_once_with(
             impersonate=settings.impersonate,
             curl_options={CurlOpt.PROXY: ""},
+        )
+        self.assertIs(fetcher.session, session_factory.return_value)
+
+    def test_fetcher_binds_physical_route_when_tun_is_active(self) -> None:
+        from app.direct_route import DirectTarget, PhysicalRoute
+
+        target = DirectTarget(
+            route=PhysicalRoute("Ethernet", 2, "192.168.0.10", "192.168.0.1", ("192.168.0.1",)),
+            host="pay.ldxp.cn",
+            port=443,
+            addresses=("14.215.57.198", "14.215.57.196"),
+        )
+        with (
+            patch("app.crawler.session.direct_target_for_url", return_value=target),
+            patch("app.crawler.session.cffi.Session") as session_factory,
+        ):
+            fetcher = Fetcher(
+                credential_policy="public",
+                base_url="https://pay.ldxp.cn",
+            )
+
+        session_factory.assert_called_once_with(
+            impersonate=settings.impersonate,
+            curl_options={
+                CurlOpt.PROXY: "",
+                CurlOpt.INTERFACE: "192.168.0.10",
+                CurlOpt.RESOLVE: [
+                    "pay.ldxp.cn:443:14.215.57.198,14.215.57.196"
+                ],
+            },
         )
         self.assertIs(fetcher.session, session_factory.return_value)
 

@@ -2039,7 +2039,7 @@ def _verify_pickai_inventory(
         return result
 
     result["attempted"] = len(stale)
-    records_cache: dict[tuple[str, str], list[ProductRecord] | Exception] = {}
+    records_cache: dict[tuple[str, str, str], list[ProductRecord] | Exception] = {}
     source = _origin_shop_api(
         timeout_s=REALTIME_ORIGIN_TIMEOUT_S,
         deadline_monotonic=time.monotonic() + RETAIL_VERIFY_BUDGET_S,
@@ -2114,7 +2114,10 @@ def _verify_pickai_inventory(
                 else:
                     token, detail = found
                     preferred_type = _GOODS_TYPE_BY_CATEGORY.get(detail.category, "")
-                    cache_key = (token, preferred_type)
+                    # goodsInfo 能拿到原店真实商品名。必须用它查询 goodsList，
+                    # 否则 "ChatGPT Plus" 之类的聚合关键词会漏掉中文标题商品。
+                    origin_keywords = detail.name.strip() or keywords
+                    cache_key = (token, preferred_type, origin_keywords)
                     records_or_error = records_cache.get(cache_key)
                     if records_or_error is None:
                         try:
@@ -2127,7 +2130,7 @@ def _verify_pickai_inventory(
                                 search_options["max_scoped_categories"] = 1
                             records_or_error = source.search(
                                 token,
-                                keywords,
+                                origin_keywords,
                                 goods_type,
                                 **search_options,
                             )

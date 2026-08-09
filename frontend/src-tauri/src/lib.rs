@@ -346,6 +346,34 @@ fn import_public_clearance(
     }
 }
 
+/// 后端会启动一个只监听 127.0.0.1 的受限 CONNECT 代理。它只允许链动、
+/// PickAI、云猫和阿里验证资源，并把出站 socket 绑定到物理网卡，因此全局
+/// TUN 开着时也不需要关闭或重载用户的代理客户端。
+fn physical_direct_proxy_port() -> Option<u16> {
+    let address = SocketAddr::from(([127, 0, 0, 1], 8756));
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2)).ok()?;
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(6)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
+    stream
+        .write_all(
+            b"GET /api/network-route HTTP/1.1\r\nHost: 127.0.0.1:8756\r\nConnection: close\r\n\r\n",
+        )
+        .ok()?;
+    let mut response = Vec::with_capacity(2048);
+    stream.read_to_end(&mut response).ok()?;
+    let response = String::from_utf8_lossy(&response);
+    let (_, body) = response.split_once("\r\n\r\n")?;
+    let result: serde_json::Value = serde_json::from_str(body).ok()?;
+    if result.get("available")?.as_bool()? != true {
+        return None;
+    }
+    result
+        .get("proxy_port")?
+        .as_u64()
+        .and_then(|port| u16::try_from(port).ok())
+        .filter(|port| *port > 0)
+}
+
 fn edge_executable() -> Option<PathBuf> {
     [
         std::env::var_os("ProgramFiles(x86)"),
@@ -975,10 +1003,20 @@ fn open_login(
     // 清掉占用同配置目录的残留 Edge，否则新窗口会复用旧进程、忽略新调试端口。
     kill_edge_for_profile(&profile_dir);
     thread::sleep(Duration::from_millis(500));
+    let physical_proxy_port = physical_direct_proxy_port();
 
     let spawn_edge = |debug_port: u16| -> Result<Child, String> {
-        Command::new(&edge)
-            .arg(format!("--app={}", target.login_url))
+        let mut command = Command::new(&edge);
+        command.arg(format!("--app={}", target.login_url));
+        if let Some(port) = physical_proxy_port {
+            command
+                .arg(format!("--proxy-server=http://127.0.0.1:{port}"))
+                .arg("--disable-quic");
+        } else {
+            // 普通系统代理仍可直接绕开；全局 TUN 则由上面的本地代理处理。
+            command.arg("--no-proxy-server");
+        }
+        command
             .arg("--no-first-run")
             .arg("--no-default-browser-check")
             .arg(format!("--disable-features={EDGE_FIRST_RUN_DISABLED}"))
@@ -1429,10 +1467,19 @@ fn open_public_verification_browser(
     }
     kill_edge_for_profile(&profile_dir);
     thread::sleep(Duration::from_millis(350));
+    let physical_proxy_port = physical_direct_proxy_port();
 
     let spawn_edge = |debug_port: u16| -> Result<Child, String> {
-        Command::new(&edge)
-            .arg(format!("--app={PUBLIC_VERIFICATION_URL}"))
+        let mut command = Command::new(&edge);
+        command.arg(format!("--app={PUBLIC_VERIFICATION_URL}"));
+        if let Some(port) = physical_proxy_port {
+            command
+                .arg(format!("--proxy-server=http://127.0.0.1:{port}"))
+                .arg("--disable-quic");
+        } else {
+            command.arg("--no-proxy-server");
+        }
+        command
             .arg("--no-first-run")
             .arg("--no-default-browser-check")
             .arg(format!("--disable-features={EDGE_FIRST_RUN_DISABLED}"))
