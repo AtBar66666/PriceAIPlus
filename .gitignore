@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+crawler/build/
+crawler/dist/
+
+# Data / secrets
+*.db
+*.sqlite3
+crawler/data/
+.env
+cookies.txt
+secrets.json
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+*.log
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+frontend/src-tauri/binaries/*.exe
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# Local research/reference downloads (not application source)
+/*.html
+/*.js
+/systemConfig.json
+/ref-PriceExplorer.tsx
+/tmp-pickai-js/
+/web/
+
+# Generated template/reference assets that are not used by the application.
+/frontend/README.md
+/frontend/scripts/ref.mjs
+/frontend/src/assets/
+/frontend/public/favicon.svg
+/frontend/public/icons.svg
+/frontend/public/app-icons/*
+!/frontend/public/app-icons/32x32.png
+!/frontend/public/app-icons/128x128@2x.png
+
+# Keep one curated public preview; ignore test/debug captures.
+/screenshots/*
+!/screenshots/app.png
