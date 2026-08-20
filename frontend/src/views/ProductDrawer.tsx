@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ExternalLink, LoaderCircle, RefreshCw, Store, X } from 'lucide-react'
 import { api, type Product } from '../lib/api'
 import { BrandIcon } from '../components/BrandIcon'
-import { StatusTag, StockPill } from '../components/ui'
+import { Button, IconButton, StatusText, StockCell } from '../components/ui'
 import { relTime } from '../lib/format'
 import { openExternal } from '../lib/openExternal'
 import { toast } from '../lib/toast'
@@ -19,7 +19,9 @@ function platformLabel(name: string): string | null {
 function canCheckOrigin(url: string): boolean {
   try {
     const parsed = new URL(url)
-    return parsed.hostname.toLowerCase() === 'pay.ldxp.cn' && /^\/item\/[^/]+\/?$/i.test(parsed.pathname)
+    return (
+      parsed.hostname.toLowerCase() === 'pay.ldxp.cn' && /^\/item\/[^/]+\/?$/i.test(parsed.pathname)
+    )
   } catch {
     return false
   }
@@ -36,10 +38,10 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
         : current.stock.toLocaleString('zh-CN')
   const platform = platformLabel(current.name) ?? current.category
   const cells = [
-    { label: '售价', value: `¥${current.sale_price.toFixed(2)}` },
-    { label: '库存', value: stockText },
-    { label: '平台', value: platform },
-    { label: '品类', value: current.category },
+    { label: '售价', value: `¥${current.sale_price.toFixed(2)}`, num: true },
+    { label: '库存', value: stockText, num: true },
+    { label: '平台', value: platform, num: false },
+    { label: '品类', value: current.category, num: false },
   ]
 
   const checkLatest = async () => {
@@ -66,7 +68,10 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
         return
       }
       setCurrent(latest)
-      toast(`已查最新：${latest.stock < 0 ? '库存未知' : `库存 ${latest.stock.toLocaleString('zh-CN')}`}`, 'success')
+      toast(
+        `已查最新：${latest.stock < 0 ? '库存未知' : `库存 ${latest.stock.toLocaleString('zh-CN')}`}`,
+        'success',
+      )
     } catch {
       toast('原店查询失败，本地结果未改动', 'error')
     } finally {
@@ -75,111 +80,125 @@ export function ProductDrawer({ product, onClose }: { product: Product; onClose:
   }
 
   return (
-    <div className="drawer-overlay fixed inset-0 z-[60] flex justify-end bg-[var(--overlay)] backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="drawer-overlay fixed inset-0 z-[60] flex justify-end bg-[var(--overlay)]"
+      onClick={onClose}
+    >
       <div
-        className="drawer-panel flex h-full w-[min(620px,95vw)] flex-col bg-white shadow-[var(--shadow-float)]"
+        className="drawer-panel flex h-full w-[min(560px,95vw)] flex-col border-l border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-float)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start gap-4 border-b border-[var(--border-subtle)] p-7">
+        <div className="flex items-start gap-3 border-b border-[var(--border-soft)] p-6">
           <BrandIcon name={current.name} category={current.category} />
           <div className="min-w-0 flex-1">
-            <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
-              <StockPill stock={current.stock} status={current.status} />
-              {current.is_linked && <StatusTag label="已对接" tone="ok" />}
-            </div>
-            <h2 className="text-[21px] font-bold leading-snug text-[var(--ink)]">{current.name}</h2>
-            <div className="mt-2 text-[13px] text-[var(--soft)]">
+            <h2 className="text-[17px] font-bold leading-[1.45] tracking-[-0.01em] text-[var(--ink)]">
+              {current.name}
+            </h2>
+            <div className="mt-1.5 text-[13.5px] text-[var(--muted)]">
               {current.merchant_name || '未知商家'} · 更新于 {relTime(current.last_seen_at)}
             </div>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <StockCell stock={current.stock} status={current.status} />
+              {current.is_linked && <StatusText label="已对接" tone="ok" />}
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭商品详情"
-            className="ui-control group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-transparent text-[var(--soft)] hover:bg-[var(--brand-soft)] hover:text-[var(--success-text)]"
-          >
-            <X size={19} className="transition-transform duration-200 group-hover:scale-110" />
-          </button>
+          <IconButton type="button" onClick={onClose} aria-label="关闭商品详情">
+            <X size={16} />
+          </IconButton>
         </div>
 
-        <div className="grid grid-cols-2 border-b border-[var(--border-subtle)] sm:grid-cols-4">
+        <div className="grid grid-cols-2 divide-x divide-[var(--border-soft)] border-b border-[var(--border)] sm:grid-cols-4">
           {cells.map((cell) => (
-            <div key={cell.label} className="border-r border-[var(--border-subtle)] px-6 py-5 last:border-r-0">
-              <div className="t-label">{cell.label}</div>
-              <div className="mt-2 truncate text-[17px] font-bold text-[var(--ink)]">{cell.value}</div>
+            <div key={cell.label} className="min-w-0 px-4 py-4 first:pl-6">
+              <div className="t-label truncate">{cell.label}</div>
+              <div
+                className={
+                  cell.num
+                    ? 'num-lg mt-1.5 truncate text-[19px] text-[var(--ink)]'
+                    : 'mt-1.5 truncate text-[15.5px] font-bold leading-[1.2] text-[var(--ink)]'
+                }
+              >
+                {cell.value}
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="flex-1 overflow-auto p-7">
-          <dl className="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">
-            <div className="flex items-center justify-between gap-6 py-4">
-              <dt className="text-[13px] text-[var(--soft)]">商家</dt>
-              <dd className="text-right text-[14px] font-medium text-[var(--ink)]">{current.merchant_name || '-'}</dd>
+        <div className="flex-1 overflow-auto p-6">
+          <dl className="space-y-3">
+            <div className="flex items-baseline justify-between gap-6 text-[13px]">
+              <dt className="text-[var(--muted)]">商家</dt>
+              <dd className="truncate font-medium text-[var(--ink)]">
+                {current.merchant_name || '-'}
+              </dd>
             </div>
-            <div className="flex items-center justify-between gap-6 py-4">
-              <dt className="text-[13px] text-[var(--soft)]">代理价</dt>
-              <dd className="num text-[14px] font-medium text-[var(--ink)]">
+            <div className="flex items-baseline justify-between gap-6 text-[13px]">
+              <dt className="text-[var(--muted)]">代理价</dt>
+              <dd className="num text-[13.5px] font-semibold text-[var(--ink)]">
                 {current.agent_price > 0 ? `¥${current.agent_price.toFixed(2)}` : '-'}
               </dd>
             </div>
-            <div className="flex items-center justify-between gap-6 py-4">
-              <dt className="text-[13px] text-[var(--soft)]">成本价</dt>
-              <dd className="num text-[14px] font-medium text-[var(--ink)]">
+            <div className="flex items-baseline justify-between gap-6 text-[13px]">
+              <dt className="text-[var(--muted)]">成本价</dt>
+              <dd className="num text-[13.5px] font-semibold text-[var(--ink)]">
                 {current.cost_price > 0 ? `¥${current.cost_price.toFixed(2)}` : '-'}
               </dd>
             </div>
           </dl>
 
           {canCheckOrigin(current.url) && (
-            <div className="mt-7 rounded-2xl border border-[var(--border-subtle)] bg-[var(--panel-soft)] p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-[13.5px] font-semibold text-[var(--ink)]">需要最新库存？</div>
-                  <div className="mt-1 text-[12px] leading-5 text-[var(--soft)]">普通搜索会核对当前页；这里可单独重查这一件。</div>
+            <div className="mt-6 flex items-center justify-between gap-4 rounded-[10px] border border-[var(--border)] bg-[var(--head)] px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-[14px] font-medium text-[var(--ink)]">需要最新库存？</div>
+                <div className="mt-1 text-[13px] leading-[1.5] text-[var(--muted)]">
+                  可单独重查这一件，不影响列表结果。
                 </div>
-                <button
-                  type="button"
-                  disabled={checking}
-                  onClick={() => void checkLatest()}
-                  className="ui-control inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 text-[13px] font-semibold text-[var(--success-text)] shadow-[var(--shadow-xs)] hover:bg-[var(--brand-soft)] disabled:pointer-events-none disabled:opacity-55"
-                >
-                  {checking ? <LoaderCircle size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-                  {checking ? '查询中' : '手动查最新'}
-                </button>
               </div>
-            </div>
-          )}
-
-          {(current.url || current.shop_url) && (
-            <div className={`mt-7 grid gap-3 ${current.shop_url ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {current.url && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void openExternal(current.url).catch(() => toast('无法打开商品链接', 'error'))
-                  }}
-                  className="ui-control group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--primary)] text-[15px] font-medium text-[var(--on-primary)] shadow-[var(--shadow-pop)] hover:bg-[var(--primary-hover)]"
-                >
-                  <ExternalLink size={17} className="transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  打开商品页
-                </button>
-              )}
-              {current.shop_url && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void openExternal(current.shop_url).catch(() => toast('无法打开零售店铺', 'error'))
-                  }}
-                  className="ui-control group inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-white text-[15px] font-medium text-[var(--ink)] shadow-[var(--shadow-xs)] hover:border-[color-mix(in_srgb,var(--brand)_45%,var(--border))] hover:bg-[var(--brand-soft)] hover:text-[var(--success-text)] hover:shadow-[var(--shadow-hover)]"
-                >
-                  <Store size={17} className="transition-transform duration-200 group-hover:scale-105" />
-                  进入零售店
-                </button>
-              )}
+              <Button type="button" disabled={checking} onClick={() => void checkLatest()}>
+                {checking ? (
+                  <LoaderCircle size={13} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={13} />
+                )}
+                {checking ? '查询中' : '查最新'}
+              </Button>
             </div>
           )}
         </div>
+
+        {(current.url || current.shop_url) && (
+          <div
+            className={`grid gap-2.5 border-t border-[var(--border-soft)] p-5 ${current.shop_url && current.url ? 'grid-cols-2' : 'grid-cols-1'}`}
+          >
+            {current.url && (
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                onClick={() => {
+                  void openExternal(current.url).catch(() => toast('无法打开商品链接', 'error'))
+                }}
+              >
+                <ExternalLink size={14} />
+                打开商品页
+              </Button>
+            )}
+            {current.shop_url && (
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => {
+                  void openExternal(current.shop_url).catch(() =>
+                    toast('无法打开零售店铺', 'error'),
+                  )
+                }}
+              >
+                <Store size={14} />
+                进入零售店
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

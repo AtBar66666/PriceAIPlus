@@ -10,6 +10,7 @@ $python = Join-Path $crawlerDir ".venv\Scripts\python.exe"
 $entryPoint = Join-Path $crawlerDir "backend_entry.py"
 $binariesDir = Join-Path $repoRoot "frontend\src-tauri\binaries"
 $workDir = Join-Path $crawlerDir "build\pyinstaller"
+$distDir = Join-Path $workDir "dist"
 $pickaiSnapshot = Join-Path $crawlerDir "data\pickai_snapshot.json"
 
 if (-not (Test-Path $python)) {
@@ -37,13 +38,15 @@ if (Test-Path $pickaiSnapshot) {
     Write-Warning "PickAI snapshot seed not found; first launch will build it online."
 }
 
+# onedir 而非 onefile：onefile 每次启动都要把全部内容自解压到临时目录，
+# 冷启动动辄数秒。onedir 由 Rust 侧按版本解压一次后直接运行，启动快得多。
 & $python -m PyInstaller `
     --noconfirm `
     --clean `
-    --onefile `
+    --onedir `
     --noconsole `
     --name $outputName `
-    --distpath $binariesDir `
+    --distpath $distDir `
     --workpath $workDir `
     --specpath $workDir `
     --paths $crawlerDir `
@@ -57,9 +60,30 @@ if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller 构建失败，退出码：$LASTEXITCODE"
 }
 
-$sidecar = Join-Path $binariesDir "$outputName.exe"
-if (-not (Test-Path $sidecar)) {
-    throw "构建完成但未找到 sidecar：$sidecar"
+$appDir = Join-Path $distDir $outputName
+$sidecarExe = Join-Path $appDir "$outputName.exe"
+if (-not (Test-Path $sidecarExe)) {
+    throw "构建完成但未找到 sidecar：$sidecarExe"
 }
 
-Write-Host "Sidecar ready: $sidecar"
+# 打成 zip 嵌进 Tauri 主程序；zip 根目录直接是 exe 与 _internal。
+$zipPath = Join-Path $binariesDir "$outputName.zip"
+if (Test-Path $zipPath) {
+    Remove-Item -Force $zipPath
+}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory(
+    $appDir,
+    $zipPath,
+    [System.IO.Compression.CompressionLevel]::Optimal,
+    $false
+)
+
+# 旧的 onefile 产物不再使用，删掉避免被误嵌。
+$legacyExe = Join-Path $binariesDir "$outputName.exe"
+if (Test-Path $legacyExe) {
+    Remove-Item -Force $legacyExe
+}
+
+$zipItem = Get-Item $zipPath
+Write-Host ("Sidecar ready: {0} ({1:N2} MB)" -f $zipItem.FullName, ($zipItem.Length / 1MB))

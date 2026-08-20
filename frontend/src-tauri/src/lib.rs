@@ -9,11 +9,14 @@ use std::time::{Duration, Instant};
 use tauri::Emitter;
 
 #[cfg(target_os = "windows")]
-const BACKEND_BYTES: &[u8] = include_bytes!(concat!(
+const BACKEND_ARCHIVE: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/binaries/bipai-backend-x86_64-pc-windows-msvc.exe"
+    "/binaries/bipai-backend-x86_64-pc-windows-msvc.zip"
 ));
-const BACKEND_FILE_NAME: &str = concat!("bipai-backend-", env!("CARGO_PKG_VERSION"), ".exe");
+#[cfg(target_os = "windows")]
+const BACKEND_EXE_NAME: &str = "bipai-backend-x86_64-pc-windows-msvc.exe";
+#[cfg(target_os = "windows")]
+const BACKEND_DIR_NAME: &str = concat!("backend-", env!("CARGO_PKG_VERSION"));
 
 const READ_LDXP_TOKEN_EXPRESSION: &str = r#"
 (() => {
@@ -119,34 +122,49 @@ fn bipai_data_dir() -> PathBuf {
 fn ensure_backend_executable() -> Result<PathBuf, String> {
     let runtime_dir = bipai_data_dir().join("runtime");
     fs::create_dir_all(&runtime_dir).map_err(|error| error.to_string())?;
-    let backend_path = runtime_dir.join(BACKEND_FILE_NAME);
+    let install_dir = runtime_dir.join(BACKEND_DIR_NAME);
+    let backend_path = install_dir.join(BACKEND_EXE_NAME);
 
-    let needs_update = fs::read(&backend_path)
-        .map(|current| current.as_slice() != BACKEND_BYTES)
-        .unwrap_or(true);
-    if needs_update {
-        let temporary = runtime_dir.join(format!("{BACKEND_FILE_NAME}.new"));
-        fs::write(&temporary, BACKEND_BYTES).map_err(|error| error.to_string())?;
-        if backend_path.exists() {
-            fs::remove_file(&backend_path).map_err(|error| error.to_string())?;
+    // onedir 目录按版本号命名；解压走“临时目录 + 原子改名”，目录存在即完整。
+    // 每个版本只解压一次，之后启动直接运行，不再有 onefile 的自解压开销。
+    if !backend_path.is_file() {
+        let staging = runtime_dir.join(format!("{BACKEND_DIR_NAME}.new"));
+        if staging.exists() {
+            fs::remove_dir_all(&staging).map_err(|error| error.to_string())?;
         }
-        fs::rename(&temporary, &backend_path).map_err(|error| error.to_string())?;
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(BACKEND_ARCHIVE))
+            .map_err(|error| format!("读取内置后端包失败：{error}"))?;
+        archive
+            .extract(&staging)
+            .map_err(|error| format!("解压内置后端失败：{error}"))?;
+        if !staging.join(BACKEND_EXE_NAME).is_file() {
+            return Err("内置后端包中缺少可执行文件".to_string());
+        }
+        if install_dir.exists() {
+            fs::remove_dir_all(&install_dir).map_err(|error| error.to_string())?;
+        }
+        fs::rename(&staging, &install_dir).map_err(|error| error.to_string())?;
     }
 
-    // 清掉旧版本的运行时副本；若仍被占用，删除失败也不影响本次启动。
+    // 清掉旧版本目录和历史 onefile 副本；若仍被占用，删除失败也不影响本次启动。
     if let Ok(entries) = fs::read_dir(&runtime_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            let is_old_backend =
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| {
-                        name.starts_with("bipai-backend-")
-                            && name.ends_with(".exe")
-                            && name != BACKEND_FILE_NAME
-                    });
-            if is_old_backend {
-                let _ = fs::remove_file(path);
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            if name == BACKEND_DIR_NAME {
+                continue;
+            }
+            let is_backend_artifact =
+                name.starts_with("backend-") || name.starts_with("bipai-backend-");
+            if !is_backend_artifact {
+                continue;
+            }
+            if path.is_dir() {
+                let _ = fs::remove_dir_all(&path);
+            } else {
+                let _ = fs::remove_file(&path);
             }
         }
     }
@@ -1588,17 +1606,27 @@ pub fn run() {
                 )?;
             }
 
-            match start_backend() {
-                Ok(Some(child)) => {
-                    backend_setup.lock().unwrap().replace(child);
+            // 后端首启要自解压 onefile 并拉起 uvicorn，耗时数秒。放进后台线程，
+            // 避免阻塞 setup 所在的主线程导致 WebView 迟迟不渲染（白屏）。窗口会
+            // 立即显示界面，后端就绪后再发事件让前端刷新数据。
+            let backend_ready_app = app.handle().clone();
+            thread::spawn(move || {
+                match start_backend() {
+                    Ok(Some(child)) => {
+                        backend_setup.lock().unwrap().replace(child);
+                    }
+                    Ok(None) => {
+                        log::info!("using an already running Bipai backend");
+                    }
+                    Err(error) => {
+                        log::error!("failed to start embedded backend: {error}");
+                        let _ = backend_ready_app
+                            .emit("backend-error", serde_json::json!({ "message": error }));
+                        return;
+                    }
                 }
-                Ok(None) => {
-                    log::info!("using an already running Bipai backend");
-                }
-                Err(error) => {
-                    log::error!("failed to start embedded backend: {error}");
-                }
-            }
+                let _ = backend_ready_app.emit("backend-ready", serde_json::json!({ "ok": true }));
+            });
             Ok(())
         })
         .build(tauri::generate_context!())

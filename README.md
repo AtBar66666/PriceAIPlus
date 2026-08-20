@@ -9,6 +9,10 @@
 
 ![比牌商品搜索](screenshots/app.png)
 
+| 原店实时核验 | 零售店铺 | 连接设置 |
+| --- | --- | --- |
+| ![搜索结果](screenshots/results.png) | ![零售店铺](screenshots/shops.png) | ![连接设置](screenshots/settings.png) |
+
 ## 技术栈
 
 | 层 | 选型 | 说明 |

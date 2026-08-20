@@ -6,9 +6,22 @@ import { api, type RetailShop } from '../lib/api'
 import { relTime } from '../lib/format'
 import { openExternal } from '../lib/openExternal'
 import { toast } from '../lib/toast'
-import { Button, EmptyState, PageHeader, Spinner, StatusTag } from '../components/ui'
+import {
+  Button,
+  EmptyState,
+  fieldClass,
+  IconButton,
+  PageHeader,
+  Spinner,
+  StatusText,
+} from '../components/ui'
 
-const GRID = 'grid-cols-[minmax(180px,1fr)_90px_128px_204px]'
+const GRID = 'grid-cols-[minmax(240px,1fr)_100px_110px_112px]'
+
+function shopInitial(name: string): string {
+  const m = name.trim().match(/[A-Za-z0-9\u4e00-\u9fa5]/)
+  return m ? m[0].toUpperCase() : '#'
+}
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
@@ -86,8 +99,8 @@ export function RetailShops() {
   const pendingText = add.isPending
     ? '正在添加店铺并抓取全部商品分页，请稍候'
     : refreshOne.isPending
-        ? `正在刷新「${refreshingShop?.name ?? '店铺'}」的全部商品`
-        : ''
+      ? `正在刷新「${refreshingShop?.name ?? '店铺'}」的全部商品`
+      : ''
   const mutationPending = syncPending || remove.isPending
   const pageSize = 50
   const normalizedFilter = filter.trim().toLowerCase()
@@ -118,63 +131,74 @@ export function RetailShops() {
   const listError = errorMessage(shopsQuery.error, '店铺列表加载失败')
 
   return (
-    <div>
+    <div className="mx-auto max-w-[960px]">
       <PageHeader
         title="零售店铺"
-        desc="这里保存原店 token；实时搜索命中的 PickAI 商品会自动解析并加入，后续直接抓原店，不再把聚合快照当库存。"
+        desc="这里保存原店 token；实时搜索命中的 PickAI 商品会自动解析并加入，后续直接抓原店。"
+        actions={
+          <span className="text-[14px] text-[var(--muted)]">已收录 <span className="num font-semibold text-[var(--ink)]">{shops.length.toLocaleString('zh-CN')}</span> 家
+          </span>
+        }
       />
 
       <form
-        className="mb-6 flex flex-wrap items-end gap-3 rounded-[20px] border border-[var(--border-subtle)] bg-white p-5 shadow-[var(--shadow-card)]"
+        className="border-t-2 border-[var(--rule)] pt-6"
         onSubmit={(event) => {
           event.preventDefault()
           submit()
         }}
       >
-        <label className="min-w-[300px] flex-1">
-          <span className="mb-2 block text-[12.5px] font-semibold text-[var(--text)]">公开店铺地址</span>
+        <label
+          className="mb-2 block text-[12.5px] font-medium text-[var(--text)]"
+          htmlFor="shop-url"
+        >
+          公开店铺地址
+        </label>
+        <div className="flex gap-2">
           <input
+            id="shop-url"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             disabled={mutationPending || shopsQuery.isLoading}
             placeholder="https://pay.ldxp.cn/shop/..."
             autoComplete="off"
-            className="ring-focus h-11 w-full rounded-full border border-[var(--border)] bg-white px-5 font-mono text-[13.5px] text-[var(--text)] shadow-[var(--shadow-xs)] outline-none transition-[border-color,box-shadow] duration-200 ease-out placeholder:font-sans placeholder:text-[var(--placeholder)] hover:border-[color-mix(in_srgb,var(--brand)_34%,var(--border))] hover:shadow-[var(--shadow-hover)] disabled:cursor-not-allowed disabled:bg-[var(--surface)] disabled:opacity-65"
+            className={clsx(fieldClass, 'flex-1 font-mono placeholder:font-sans')}
           />
-        </label>
-
-        <Button
-          type="submit"
-          variant="dark"
-          className="group"
-          disabled={!url.trim() || duplicate || mutationPending || shopsQuery.isLoading}
-        >
-          {add.isPending ? (
-            <LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" />
-          ) : (
-            <Plus size={16} className="ui-icon-motion transition-transform duration-200 group-hover:scale-110" />
-          )}
-          {duplicate ? '已在店铺库' : add.isPending ? '正在抓取整店' : '添加并抓取'}
-        </Button>
-
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            disabled={!url.trim() || duplicate || mutationPending || shopsQuery.isLoading}
+          >
+            {add.isPending ? (
+              <LoaderCircle size={14} className="animate-spin motion-reduce:animate-none" />
+            ) : (
+              <Plus size={14} />
+            )}
+            {duplicate ? '已在店铺库' : add.isPending ? '正在抓取整店' : '添加并抓取'}
+          </Button>
+        </div>
       </form>
 
       {pendingText && (
         <div
           role="status"
           aria-live="polite"
-          className="mb-6 flex items-center gap-2.5 rounded-xl border border-[color-mix(in_srgb,var(--brand)_24%,transparent)] bg-[var(--brand-soft)] px-4 py-3 text-[13px] font-medium text-[var(--success-text)]"
+          className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-[12.5px] text-[var(--text)]"
         >
-          <LoaderCircle size={16} className="shrink-0 animate-spin motion-reduce:animate-none" />
+          <LoaderCircle
+            size={13}
+            className="shrink-0 animate-spin text-[var(--ink)] motion-reduce:animate-none"
+          />
           {pendingText}
         </div>
       )}
 
-      <div className="mb-3 flex items-center justify-between gap-4">
-        <label className="relative block w-full max-w-[420px]">
+      <div className="mb-3 mt-6">
+        <label className="relative block w-full max-w-[320px]">
           <Search
-            size={15}
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--placeholder)]"
+            size={14}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--faint)]"
           />
           <input
             value={filter}
@@ -183,25 +207,23 @@ export function RetailShops() {
               setShopPage(1)
             }}
             placeholder="筛选店名或店铺 Token"
-            className="ring-focus h-10 w-full rounded-full border border-[var(--border)] bg-white pl-10 pr-4 text-[13px] text-[var(--text)] outline-none placeholder:text-[var(--placeholder)]"
+            aria-label="筛选店名或店铺 Token"
+            className={clsx(fieldClass, 'pl-9')}
           />
         </label>
-        <span className="shrink-0 text-[12.5px] text-[var(--soft)]">
-          已收录 {shops.length.toLocaleString('zh-CN')} 家
-        </span>
       </div>
 
-      <div className="overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-white shadow-[var(--shadow-card)]">
+      <div className="border-t-2 border-[var(--rule)]">
         <div
           className={clsx(
-            'grid h-[52px] items-center gap-5 border-b border-[var(--border-subtle)] bg-[var(--panel-soft)] px-6',
+            'grid h-11 items-center gap-4 border-b border-[var(--border)] px-3 text-[13.5px] font-bold text-[var(--ink)]',
             GRID,
           )}
         >
-          <div className="t-label">店铺 / 地址</div>
-          <div className="t-label">商品</div>
-          <div className="t-label">最近同步</div>
-          <div className="t-label text-right">操作</div>
+          <div>店铺 / 地址</div>
+          <div className="text-right">商品数</div>
+          <div>最近同步</div>
+          <div className="text-right">操作</div>
         </div>
 
         {shopsQuery.isLoading ? (
@@ -220,75 +242,66 @@ export function RetailShops() {
               <div
                 key={shop.id}
                 className={clsx(
-                  'ui-row-soft grid min-h-[84px] items-center gap-5 border-b border-[var(--border-subtle)] px-6 py-3 last:border-0',
+                  'ui-row grid min-h-[66px] items-center gap-4 border-b border-[var(--border)] px-3 py-2 last:border-0',
                   GRID,
                 )}
               >
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div className="truncate text-[15px] font-semibold text-[var(--ink)]">{shop.name}</div>
-                    <StatusTag label={shop.active ? '已启用' : '已停用'} tone={shop.active ? 'ok' : 'muted'} />
-                  </div>
-                  <div
-                    className="mt-1 truncate font-mono text-[11.5px] text-[var(--soft)]"
-                    title={`${shop.url} · Token ${shop.token}`}
-                  >
-                    {shop.url} · Token {shop.token}
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] text-[13px] font-semibold text-[var(--text)]">
+                    {shopInitial(shop.name)}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-[15px] font-medium text-[var(--ink)]">
+                        {shop.name}
+                      </span>
+                      {!shop.active && <StatusText label="已停用" tone="muted" />}
+                    </div>
+                    <div
+                      className="truncate font-mono text-[12.5px] text-[var(--faint)]"
+                      title={`${shop.url} · Token ${shop.token}`}
+                    >
+                      {shop.url}
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <div className="num text-[17px] font-semibold text-[var(--ink)]">
-                    {shop.product_count.toLocaleString('zh-CN')}
-                  </div>
-                  <div className="mt-0.5 text-[11.5px] text-[var(--placeholder)]">条商品</div>
+                <div className="num text-right text-[15.5px] font-semibold text-[var(--ink)]">
+                  {shop.product_count.toLocaleString('zh-CN')}
                 </div>
 
-                <div
-                  className="text-[12.5px] font-medium text-[var(--muted)]"
-                  title={shop.last_synced_at ?? '尚未同步'}
-                >
+                <div className="text-[13.5px] text-[var(--muted)]" title={shop.last_synced_at ?? '尚未同步'}>
                   {relTime(shop.last_synced_at)}
                 </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button
+                <div className="flex justify-end gap-1">
+                  <IconButton
                     type="button"
-                    size="sm"
-                    variant="outline"
-                    className="group w-[72px] px-0"
                     onClick={() => openShop(shop)}
+                    aria-label={`打开店铺 ${shop.name}`}
+                    title="打开店铺"
                   >
-                    <ExternalLink
-                      size={14}
-                      className="ui-icon-motion transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                    />
-                    打开
-                  </Button>
-
-                  <Button
+                    <ExternalLink size={14} />
+                  </IconButton>
+                  <IconButton
                     type="button"
-                    size="sm"
-                    className="group w-[72px] px-0"
                     disabled={syncPending || remove.isPending}
                     onClick={() => refreshOne.mutate(shop.id)}
+                    aria-label={`刷新店铺 ${shop.name}`}
+                    title="重新抓取整店"
                   >
                     {isRefreshing ? (
-                      <LoaderCircle size={14} className="animate-spin motion-reduce:animate-none" />
-                    ) : (
-                      <RefreshCw
+                      <LoaderCircle
                         size={14}
-                        className="ui-icon-motion transition-transform duration-200 group-hover:rotate-[18deg]"
+                        className="animate-spin text-[var(--accent)] motion-reduce:animate-none"
                       />
+                    ) : (
+                      <RefreshCw size={14} />
                     )}
-                    {isRefreshing ? '抓取中' : '刷新'}
-                  </Button>
-
-                  <Button
+                  </IconButton>
+                  <IconButton
                     type="button"
-                    size="sm"
-                    variant="danger"
-                    className="w-9 px-0"
+                    tone="danger"
                     disabled={syncPending || remove.isPending}
                     aria-label={`删除店铺 ${shop.name}`}
                     title="删除"
@@ -303,23 +316,24 @@ export function RetailShops() {
                     ) : (
                       <Trash2 size={14} />
                     )}
-                  </Button>
+                  </IconButton>
                 </div>
               </div>
             )
           })
         )}
       </div>
+
       {filteredShops.length > pageSize && (
-        <div className="mt-4 flex items-center justify-between">
-          <span className="text-[12.5px] text-[var(--soft)]">
-            第 {currentShopPage}/{shopPages} 页 · 匹配 {filteredShops.length.toLocaleString('zh-CN')} 家
+        <div className="mt-3 flex items-center justify-between">
+          <span className="tnum text-[12px] text-[var(--muted)]">
+            第 {currentShopPage} / {shopPages} 页，匹配{' '}
+            {filteredShops.length.toLocaleString('zh-CN')} 家
           </span>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <Button
               type="button"
               size="sm"
-              variant="outline"
               disabled={currentShopPage <= 1}
               onClick={() => setShopPage((value) => Math.max(1, value - 1))}
             >
@@ -328,7 +342,6 @@ export function RetailShops() {
             <Button
               type="button"
               size="sm"
-              variant="outline"
               disabled={currentShopPage >= shopPages}
               onClick={() => setShopPage((value) => Math.min(shopPages, value + 1))}
             >

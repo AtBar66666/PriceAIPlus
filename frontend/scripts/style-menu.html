@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>风格样张</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI','Microsoft YaHei UI','Microsoft YaHei',sans-serif; }
+  body { background:#e9e9ec; padding:24px; display:flex; flex-direction:column; gap:32px; }
+  .frame { width:1040px; }
+  .tag { font-size:15px; font-weight:700; margin-bottom:10px; color:#111; }
+  .shot { width:1040px; height:560px; overflow:hidden; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.15); position:relative; }
+  .num { font-variant-numeric:tabular-nums; }
+
+  /* ── A 中文效率工具（飞书感）── */
+  .a { background:#f2f3f5; padding:24px 28px; }
+  .a .search { display:flex; gap:12px; margin-bottom:18px; }
+  .a .input { flex:1; height:44px; background:#fff; border:1px solid #dee0e3; border-radius:10px; display:flex; align-items:center; padding:0 16px; color:#8f959e; font-size:14px; gap:10px; }
+  .a .btn { width:96px; height:44px; background:#3370ff; color:#fff; border-radius:10px; display:grid; place-items:center; font-size:15px; font-weight:600; }
+  .a .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+  .a .kpi { background:#fff; border-radius:12px; padding:16px 18px; }
+  .a .kpi .k { font-size:13px; color:#646a73; }
+  .a .kpi .v { font-size:26px; font-weight:700; color:#1f2329; margin-top:6px; }
+  .a .kpi .v.blue { color:#3370ff; }
+  .a table { width:100%; background:#fff; border-radius:12px; border-collapse:separate; border-spacing:0; overflow:hidden; }
+  .a th { text-align:left; font-size:13px; color:#646a73; font-weight:500; background:#fafbfc; padding:12px 18px; border-bottom:1px solid #eff0f1; }
+  .a td { padding:15px 18px; border-bottom:1px solid #f2f3f5; font-size:14px; color:#1f2329; }
+  .a .shop { color:#8f959e; font-size:13px; margin-top:3px; }
+  .a .price { font-size:16px; font-weight:700; text-align:right; }
+  .a .low { display:inline-block; background:#e8f1ff; color:#3370ff; font-size:12px; font-weight:600; padding:2px 8px; border-radius:6px; margin-right:8px; }
+  .a .stock { display:inline-block; background:#e8f7ee; color:#2ea75c; font-size:13px; font-weight:600; padding:4px 10px; border-radius:6px; }
+  .a .ic { width:38px; height:38px; border-radius:10px; display:grid; place-items:center; font-size:17px; color:#fff; }
+
+  /* ── B 浅色数据看板（Dribbble 感）── */
+  .b { background:#f6f7fb; padding:24px 28px; }
+  .b .search { display:flex; gap:12px; margin-bottom:18px; }
+  .b .input { flex:1; height:46px; background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(80,90,140,.08); display:flex; align-items:center; padding:0 18px; color:#9aa0b4; font-size:14px; gap:10px; }
+  .b .btn { width:100px; height:46px; background:linear-gradient(135deg,#4f7cff,#3b5bdb); color:#fff; border-radius:14px; display:grid; place-items:center; font-size:15px; font-weight:700; box-shadow:0 6px 16px rgba(79,124,255,.35); }
+  .b .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+  .b .kpi { background:#fff; border-radius:16px; padding:16px 18px; box-shadow:0 2px 12px rgba(80,90,140,.07); display:flex; gap:12px; align-items:center; }
+  .b .bub { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; font-size:18px; }
+  .b .kpi .k { font-size:12.5px; color:#8a90a4; }
+  .b .kpi .v { font-size:24px; font-weight:800; color:#232848; margin-top:2px; }
+  .b .card { background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(80,90,140,.07); overflow:hidden; }
+  .b th { text-align:left; font-size:12.5px; color:#8a90a4; font-weight:600; padding:13px 18px; border-bottom:1px solid #f0f1f6; }
+  .b table { width:100%; border-collapse:collapse; }
+  .b td { padding:14px 18px; border-bottom:1px solid #f4f5f9; font-size:14px; color:#232848; }
+  .b .shop { color:#9aa0b4; font-size:12.5px; margin-top:3px; }
+  .b .price { font-size:16.5px; font-weight:800; text-align:right; color:#232848; }
+  .b .low { display:inline-block; background:linear-gradient(135deg,#ffb43a,#ff8c3a); color:#fff; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:99px; margin-right:8px; }
+  .b .stock { display:inline-block; background:#e9f9f0; color:#1fa864; font-size:12.5px; font-weight:700; padding:5px 11px; border-radius:99px; }
+  .b .av { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-size:17px; color:#fff; }
+
+  /* ── C 大字极简（Notion 感）── */
+  .c { background:#ffffff; padding:28px 40px; }
+  .c .search { display:flex; gap:12px; margin-bottom:22px; }
+  .c .input { flex:1; height:44px; background:#f7f7f5; border-radius:8px; display:flex; align-items:center; padding:0 16px; color:#9b9a97; font-size:15px; gap:10px; }
+  .c .btn { width:88px; height:44px; background:#191919; color:#fff; border-radius:8px; display:grid; place-items:center; font-size:15px; font-weight:600; }
+  .c h1 { font-size:24px; color:#191919; letter-spacing:-.02em; margin-bottom:4px; }
+  .c .sub { color:#787774; font-size:14px; margin-bottom:20px; }
+  .c .krow { display:flex; gap:36px; padding:14px 0 18px; border-bottom:1px solid #ededec; margin-bottom:4px; }
+  .c .k { font-size:13px; color:#9b9a97; }
+  .c .v { font-size:22px; font-weight:700; color:#191919; margin-top:3px; letter-spacing:-.01em; }
+  .c .row { display:flex; align-items:center; gap:14px; padding:17px 0; border-bottom:1px solid #f1f1ef; }
+  .c .name { font-size:15px; color:#191919; font-weight:500; }
+  .c .shop { color:#9b9a97; font-size:13px; margin-top:2px; }
+  .c .price { font-size:17px; font-weight:700; color:#191919; margin-left:auto; }
+  .c .low { color:#d9730d; background:#faebdd; font-size:12px; font-weight:600; border-radius:4px; padding:2px 7px; margin-right:8px; }
+  .c .stock { font-size:13.5px; color:#448361; background:#edf3ec; border-radius:4px; padding:3px 9px; font-weight:600; margin-left:20px; }
+  .c .ic { width:36px; height:36px; border-radius:8px; background:#f1f1ef; display:grid; place-items:center; font-size:16px; }
+
+  /* ── D 现代深色（Arc/Raycast 感）── */
+  .d { background:#16171b; padding:24px 28px; }
+  .d .search { display:flex; gap:12px; margin-bottom:18px; }
+  .d .input { flex:1; height:44px; background:#1f2127; border:1px solid #2c2e36; border-radius:12px; display:flex; align-items:center; padding:0 16px; color:#6d7280; font-size:14px; gap:10px; }
+  .d .btn { width:96px; height:44px; background:#4d8dff; color:#fff; border-radius:12px; display:grid; place-items:center; font-size:15px; font-weight:700; box-shadow:0 4px 18px rgba(77,141,255,.4); }
+  .d .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+  .d .kpi { background:#1f2127; border:1px solid #2a2c34; border-radius:14px; padding:16px 18px; }
+  .d .kpi .k { font-size:12.5px; color:#8b90a0; }
+  .d .kpi .v { font-size:25px; font-weight:700; color:#f2f3f7; margin-top:5px; }
+  .d .kpi .v.blue { color:#6ea3ff; }
+  .d .card { background:#1c1e24; border:1px solid #2a2c34; border-radius:14px; overflow:hidden; }
+  .d table { width:100%; border-collapse:collapse; }
+  .d th { text-align:left; font-size:12.5px; color:#8b90a0; font-weight:600; padding:12px 18px; border-bottom:1px solid #2a2c34; background:#20222a; }
+  .d td { padding:14px 18px; border-bottom:1px solid #24262e; font-size:14px; color:#e8eaf0; }
+  .d .shop { color:#7d8290; font-size:12.5px; margin-top:3px; }
+  .d .price { font-size:16px; font-weight:700; text-align:right; color:#fff; }
+  .d .low { display:inline-block; background:rgba(110,163,255,.15); color:#6ea3ff; font-size:12px; font-weight:700; padding:3px 9px; border-radius:8px; margin-right:8px; }
+  .d .stock { display:inline-block; background:rgba(52,199,123,.12); color:#41d98a; font-size:12.5px; font-weight:700; padding:4px 10px; border-radius:8px; }
+  .d .av { width:38px; height:38px; border-radius:11px; display:grid; place-items:center; font-size:16px; color:#fff; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="fa">
+  <div class="tag">A · 中文效率工具风（飞书 / 钉钉质感：大字、正蓝、清爽）</div>
+  <div class="shot a">
+    <div class="search"><div class="input">🔍 搜索 K12、ChatGPT Plus、邮箱或 OpenAI 接码</div><div class="btn">搜索</div></div>
+    <div class="kpis">
+      <div class="kpi"><div class="k">已核验商品</div><div class="v num">11</div></div>
+      <div class="kpi"><div class="k">本轮最低价</div><div class="v num blue">¥17.34</div></div>
+      <div class="kpi"><div class="k">本页有货</div><div class="v num">11 / 11</div></div>
+      <div class="kpi"><div class="k">核验时间</div><div class="v">刚刚</div></div>
+    </div>
+    <table>
+      <tr><th>商品与商家</th><th style="text-align:right">当前售价</th><th style="padding-left:40px">原店库存</th></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="ic" style="background:#10a37f">⬡</div><div><div>codex plus账号 已接码【带rt】，sub2 CPA格式</div><div class="shop">RenWin AI资源低价频道 · 核验于 刚刚</div></div></td><td class="price num"><span class="low">最低</span>¥17.34</td><td style="padding-left:40px"><span class="stock num">有货 128</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="ic" style="background:#3370ff">✉</div><div><div>ChatGPT Plus ·【未接码】PLUS成品号 icloud/gmail</div><div class="shop">一梦AI · 核验于 刚刚</div></div></td><td class="price num">¥17.54</td><td style="padding-left:40px"><span class="stock num">有货 34</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="ic" style="background:#f6a609">◈</div><div><div>ChatGPT Plus · chat gp.t Plus 未接码｜质保首登</div><div class="shop">鹰嘴小铺 · 核验于 刚刚</div></div></td><td class="price num">¥17.56</td><td style="padding-left:40px"><span class="stock num">有货 190</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center;border-bottom:none"><div class="ic" style="background:#7b67ee">◎</div><div><div>ChatGPT Plus · 8.13号 新出PLUS，未接码，pp渠道</div><div class="shop">牟利ai · 核验于 刚刚</div></div></td><td class="price num" style="border-bottom:none">¥18.54</td><td style="padding-left:40px;border-bottom:none"><span class="stock num">有货 7</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="frame" id="fb">
+  <div class="tag">B · 浅色数据看板风（圆角大卡、彩色图标、渐变主按钮）</div>
+  <div class="shot b">
+    <div class="search"><div class="input">🔍 搜索 K12、ChatGPT Plus、邮箱或 OpenAI 接码</div><div class="btn">搜索</div></div>
+    <div class="kpis">
+      <div class="kpi"><div class="bub" style="background:#eef2ff;color:#4f7cff">📦</div><div><div class="k">已核验商品</div><div class="v num">11</div></div></div>
+      <div class="kpi"><div class="bub" style="background:#fff3e6;color:#ff8c3a">🏆</div><div><div class="k">本轮最低价</div><div class="v num">¥17.34</div></div></div>
+      <div class="kpi"><div class="bub" style="background:#e9f9f0;color:#1fa864">✔</div><div><div class="k">本页有货</div><div class="v num">11/11</div></div></div>
+      <div class="kpi"><div class="bub" style="background:#f3eeff;color:#8a63f0">⏱</div><div><div class="k">核验时间</div><div class="v">刚刚</div></div></div>
+    </div>
+    <div class="card">
+    <table>
+      <tr><th>商品与商家</th><th style="text-align:right">当前售价</th><th style="padding-left:40px">原店库存</th></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="av" style="background:linear-gradient(135deg,#34d399,#10a37f)">G</div><div><div style="font-weight:600">codex plus账号 已接码【带rt】，sub2 CPA格式</div><div class="shop">RenWin AI资源低价频道 · 核验于 刚刚</div></div></td><td class="price num"><span class="low">🔥 最低</span>¥17.34</td><td style="padding-left:40px"><span class="stock num">有货 128</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="av" style="background:linear-gradient(135deg,#60a5fa,#4f7cff)">P</div><div><div style="font-weight:600">ChatGPT Plus ·【未接码】PLUS成品号 icloud/gmail</div><div class="shop">一梦AI · 核验于 刚刚</div></div></td><td class="price num">¥17.54</td><td style="padding-left:40px"><span class="stock num">有货 34</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="av" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">C</div><div><div style="font-weight:600">ChatGPT Plus · chat gp.t Plus 未接码｜质保首登</div><div class="shop">鹰嘴小铺 · 核验于 刚刚</div></div></td><td class="price num">¥17.56</td><td style="padding-left:40px"><span class="stock num">有货 190</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center;border-bottom:none"><div class="av" style="background:linear-gradient(135deg,#a78bfa,#8a63f0)">N</div><div><div style="font-weight:600">ChatGPT Plus · 8.13号 新出PLUS，未接码，pp渠道</div><div class="shop">牟利ai · 核验于 刚刚</div></div></td><td class="price num" style="border-bottom:none">¥18.54</td><td style="padding-left:40px;border-bottom:none"><span class="stock num">有货 7</span></td></tr>
+    </table>
+    </div>
+  </div>
+</div>
+
+<div class="frame" id="fc">
+  <div class="tag">C · 大字极简风（Notion 质感：白底、大字、极少装饰）</div>
+  <div class="shot c">
+    <h1>ChatGPT Plus</h1>
+    <div class="sub">本轮核验完成，价格与库存来自原店实时响应</div>
+    <div class="search"><div class="input">🔍 搜索 K12、ChatGPT Plus、邮箱或 OpenAI 接码</div><div class="btn">搜索</div></div>
+    <div class="krow">
+      <div><div class="k">已核验商品</div><div class="v num">11</div></div>
+      <div><div class="k">本轮最低价</div><div class="v num">¥17.34</div></div>
+      <div><div class="k">本页有货</div><div class="v num">11 / 11</div></div>
+      <div><div class="k">核验时间</div><div class="v">刚刚</div></div>
+    </div>
+    <div class="row"><div class="ic">🟢</div><div><div class="name">codex plus账号 已接码【带rt】，sub2 CPA格式</div><div class="shop">RenWin AI资源低价频道 · 核验于 刚刚</div></div><div class="price num"><span class="low">最低</span>¥17.34</div><span class="stock num">有货 128</span></div>
+    <div class="row"><div class="ic">✉️</div><div><div class="name">ChatGPT Plus ·【未接码】PLUS成品号 icloud/gmail</div><div class="shop">一梦AI · 核验于 刚刚</div></div><div class="price num">¥17.54</div><span class="stock num">有货 34</span></div>
+    <div class="row"><div class="ic">🟢</div><div><div class="name">ChatGPT Plus · chat gp.t Plus 未接码｜质保首登</div><div class="shop">鹰嘴小铺 · 核验于 刚刚</div></div><div class="price num">¥17.56</div><span class="stock num">有货 190</span></div>
+    <div class="row" style="border-bottom:none"><div class="ic">🟣</div><div><div class="name">ChatGPT Plus · 8.13号 新出PLUS，未接码，pp渠道</div><div class="shop">牟利ai · 核验于 刚刚</div></div><div class="price num">¥18.54</div><span class="stock num">有货 7</span></div>
+  </div>
+</div>
+
+<div class="frame" id="fd">
+  <div class="tag">D · 现代深色风（Arc / Raycast 质感：活力蓝、彩色头像、深灰而非纯黑）</div>
+  <div class="shot d">
+    <div class="search"><div class="input">🔍 搜索 K12、ChatGPT Plus、邮箱或 OpenAI 接码</div><div class="btn">搜索</div></div>
+    <div class="kpis">
+      <div class="kpi"><div class="k">已核验商品</div><div class="v num">11</div></div>
+      <div class="kpi"><div class="k">本轮最低价</div><div class="v num blue">¥17.34</div></div>
+      <div class="kpi"><div class="k">本页有货</div><div class="v num">11 / 11</div></div>
+      <div class="kpi"><div class="k">核验时间</div><div class="v">刚刚</div></div>
+    </div>
+    <div class="card">
+    <table>
+      <tr><th>商品与商家</th><th style="text-align:right">当前售价</th><th style="padding-left:40px">原店库存</th></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="av" style="background:#10a37f">G</div><div><div style="font-weight:600">codex plus账号 已接码【带rt】，sub2 CPA格式</div><div class="shop">RenWin AI资源低价频道 · 核验于 刚刚</div></div></td><td class="price num"><span class="low">最低</span>¥17.34</td><td style="padding-left:40px"><span class="stock num">有货 128</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="av" style="background:#4d8dff">P</div><div><div style="font-weight:600">ChatGPT Plus ·【未接码】PLUS成品号 icloud/gmail</div><div class="shop">一梦AI · 核验于 刚刚</div></div></td><td class="price num">¥17.54</td><td style="padding-left:40px"><span class="stock num">有货 34</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center"><div class="av" style="background:#f59e0b">C</div><div><div style="font-weight:600">ChatGPT Plus · chat gp.t Plus 未接码｜质保首登</div><div class="shop">鹰嘴小铺 · 核验于 刚刚</div></div></td><td class="price num">¥17.56</td><td style="padding-left:40px"><span class="stock num">有货 190</span></td></tr>
+      <tr><td style="display:flex;gap:12px;align-items:center;border-bottom:none"><div class="av" style="background:#a78bfa">N</div><div><div style="font-weight:600">ChatGPT Plus · 8.13号 新出PLUS，未接码，pp渠道</div><div class="shop">牟利ai · 核验于 刚刚</div></div></td><td class="price num" style="border-bottom:none">¥18.54</td><td style="padding-left:40px;border-bottom:none"><span class="stock num">有货 7</span></td></tr>
+    </table>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -24,10 +24,3 @@ export function relTime(iso: string | null): string {
   return `${d} 天前`
 }
 
-export const CATEGORY_COLOR: Record<string, string> = {
-  卡密: '#3b76c9',
-  知识: '#c47f1e',
-  资源: '#1f9d8f',
-  权益: '#b8508f',
-  其他: '#7b8283',
-}

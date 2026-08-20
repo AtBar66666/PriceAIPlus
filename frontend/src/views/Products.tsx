@@ -2,90 +2,39 @@ import {
   lazy,
   memo,
   Suspense,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import clsx from 'clsx'
+import { animate, motion, useReducedMotion } from 'motion/react'
 import {
   AlertTriangle,
+  ArrowRight,
   ArrowUpRight,
-  CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CirclePlus,
-  Clock3,
-  GraduationCap,
   LoaderCircle,
-  Mail,
-  MessageSquareText,
-  PackageSearch,
   RefreshCw,
-  Search,
   ShieldCheck,
 } from 'lucide-react'
-import {
-  api,
-  type PickAIIndexStatus,
-  type Product,
-  type RetailIndexStatus,
-} from '../lib/api'
-import { BrandIcon } from '../components/BrandIcon'
-import { StockPill } from '../components/ui'
+import { api, type Product } from '../lib/api'
+import { Button, Dot, IconButton, Switch } from '../components/ui'
 import { cny, relTime } from '../lib/format'
+import { SHORTCUTS, shortcutId } from '../lib/shortcuts'
 
 type Platform = 'all' | 'ldxp' | 'catfk'
 
-const SHORTCUTS = [
-  {
-    id: 'k12',
-    label: 'K12',
-    query: 'K12',
-    detail: 'GPT Team 与教育版',
-    icon: GraduationCap,
-  },
-  {
-    id: 'plus',
-    label: 'ChatGPT Plus',
-    query: 'ChatGPT Plus',
-    detail: '独享号、订阅与成品号',
-    icon: CirclePlus,
-  },
-  {
-    id: 'email',
-    label: '邮箱',
-    query: '邮箱',
-    detail: 'Gmail、Outlook 等',
-    icon: Mail,
-  },
-  {
-    id: 'sms',
-    label: 'OpenAI 接码',
-    query: 'OpenAI 接码',
-    detail: '只查 ChatGPT 验证码',
-    icon: MessageSquareText,
-  },
-] as const
-
-const GRID = 'grid-cols-[minmax(260px,1fr)_108px_128px_76px]'
 const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 const ProductDrawer = lazy(() =>
   import('./ProductDrawer').then((module) => ({ default: module.ProductDrawer })),
 )
-
-function shortcutId(value: string): string | null {
-  const compact = value.toLowerCase().replace(/\s+/g, '')
-  if (compact.includes('k12')) return 'k12'
-  if (/邮箱|email|gmail|outlook|hotmail|icloud/.test(compact)) return 'email'
-  if (compact.includes('接码') || compact.includes('sms')) return 'sms'
-  if (compact.includes('plus')) return 'plus'
-  return null
-}
 
 function isStrictRealtimeSearch(value: string): boolean {
   const compact = value.toLowerCase().replace(/\s+/g, '')
@@ -94,76 +43,85 @@ function isStrictRealtimeSearch(value: string): boolean {
   )
 }
 
-function isRetailIndexRunning(status?: RetailIndexStatus): boolean {
-  return Boolean(
-    status?.running || status?.state === 'discovering' || status?.state === 'indexing',
-  )
-}
-
 const ProductRow = memo(function ProductRow({
   product,
+  rank,
+  isLowest,
+  reduceMotion,
   onOpen,
 }: {
   product: Product
+  rank: number
+  isLowest: boolean
+  reduceMotion: boolean
   onOpen: (product: Product) => void
 }) {
   return (
-    <div
+    <motion.div
       role="button"
       tabIndex={0}
       onClick={() => onOpen(product)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') onOpen(product)
       }}
-      className={clsx(
-        'result-row grid min-h-[76px] cursor-pointer items-center gap-4 border-b border-[var(--border-subtle)] px-5 outline-none last:border-b-0',
-        GRID,
-      )}
+      initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.5,
+        delay: Math.min(rank - 1, 12) * 0.045,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      className="prow flex cursor-pointer items-center gap-5 px-3 py-[18px] outline-none"
     >
-      <div className="flex min-w-0 items-center gap-3.5 py-3">
-        <BrandIcon name={product.name} category={product.category} />
-        <div className="min-w-0">
-          <div className="truncate text-[14px] font-semibold leading-5 text-[var(--ink)]">
-            {product.name}
-          </div>
-          <div className="mt-1 flex min-w-0 items-center gap-2 text-[12px] text-[var(--soft)]">
-            <span className="truncate">{product.merchant_name || '未命名店铺'}</span>
-            <span className="shrink-0 text-[var(--border-strong)]">/</span>
-            <span
-              className="inline-flex shrink-0 items-center gap-1 text-[var(--success-text)]"
-              title={product.verified_at || undefined}
-            >
-              <CheckCircle2 size={12} strokeWidth={2.2} />
-              {product.verified_at ? relTime(product.verified_at) : '本轮核验'}
-            </span>
-          </div>
+      <span className="num r-faint w-9 shrink-0 text-[13.5px] font-semibold">
+        {String(rank).padStart(2, '0')}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="r-ink truncate text-[16.5px] font-semibold leading-[1.45] tracking-[-0.012em]">
+          {product.name}
+        </div>
+        <div className="r-muted mt-1 flex min-w-0 items-center gap-1.5 text-[13.5px] leading-[1.4]">
+          <span className="truncate">{product.merchant_name || '未命名店铺'}</span>
+          <span className="r-faint shrink-0" title={product.verified_at || undefined}>
+            · {product.verified_at ? `核验于 ${relTime(product.verified_at)}` : '本轮核验'}
+          </span>
         </div>
       </div>
 
-      <div className="num text-right text-[18px] font-bold tracking-[-0.02em] text-[var(--ink)]">
+      {isLowest && (
+        <span className="r-blue shrink-0 text-[13px] font-bold" title="本轮最低价">
+          最低
+        </span>
+      )}
+      <span className="num-lg r-price w-[128px] shrink-0 text-right">
         {cny(product.sale_price)}
+      </span>
+
+      <div className="flex w-[110px] shrink-0 items-center justify-end">
+        <RowStock product={product} />
       </div>
 
-      <div>
-        <StockPill stock={product.stock} status={product.status} />
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onOpen(product)
-          }}
-          className="ui-control inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--border)] bg-white px-2.5 text-[12px] font-semibold text-[var(--text)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
-        >
-          详情
-          <ArrowUpRight size={13} />
-        </button>
-      </div>
-    </div>
+      <ArrowUpRight size={18} strokeWidth={2} className="r-faint shrink-0" />
+    </motion.div>
   )
 })
+
+function RowStock({ product }: { product: Product }) {
+  if (product.status === '未上架')
+    return <span className="r-faint text-[13.5px] font-medium">未上架</span>
+  if (product.status === '缺货' || product.stock === 0)
+    return <span className="r-bad text-[13.5px] font-bold">缺货</span>
+  if (product.stock < 0)
+    return <span className="r-faint text-[13.5px] font-medium">库存未知</span>
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span className="r-muted text-[12.5px]">有货</span>
+      <span className="num r-ink text-[15px] font-bold">
+        {product.stock.toLocaleString('zh-CN')}
+      </span>
+    </span>
+  )
+}
 
 function LoadingRows() {
   return (
@@ -171,135 +129,124 @@ function LoadingRows() {
       {Array.from({ length: 6 }, (_, index) => (
         <div
           key={index}
-          className={clsx(
-            'grid min-h-[76px] animate-pulse items-center gap-4 border-b border-[var(--border-subtle)] px-5 last:border-b-0 motion-reduce:animate-none',
-            GRID,
-          )}
+          className="flex animate-pulse items-center gap-5 border-b border-[var(--border)] px-3 py-[22px] motion-reduce:animate-none"
         >
-          <div className="flex items-center gap-3.5">
-            <i className="h-10 w-10 rounded-lg bg-[var(--surface)]" />
-            <div className="flex-1">
-              <i className="block h-3.5 w-[58%] rounded bg-[var(--surface)]" />
-              <i className="mt-2 block h-2.5 w-[34%] rounded bg-[var(--surface)]" />
-            </div>
+          <i className="block h-3.5 w-9 shrink-0 rounded bg-[var(--surface)]" />
+          <div className="min-w-0 flex-1">
+            <i className="block h-4 w-[52%] rounded bg-[var(--surface)]" />
+            <i className="mt-2.5 block h-3 w-[28%] rounded bg-[var(--surface)]" />
           </div>
-          <i className="ml-auto block h-4 w-16 rounded bg-[var(--surface)]" />
-          <i className="block h-7 w-20 rounded bg-[var(--surface)]" />
-          <i className="ml-auto block h-8 w-14 rounded-lg bg-[var(--surface)]" />
+          <i className="block h-5 w-24 shrink-0 rounded bg-[var(--surface)]" />
+          <i className="block h-4 w-16 shrink-0 rounded bg-[var(--surface)]" />
         </div>
       ))}
     </div>
   )
 }
 
-function InitialState({ onSearch }: { onSearch: (query: string) => void }) {
+function InitialState({
+  onSearch,
+  reduceMotion,
+}: {
+  onSearch: (query: string) => void
+  reduceMotion: boolean
+}) {
   return (
-    <div className="flex min-h-[360px] flex-1 items-center justify-center px-8 py-12">
-      <div className="max-w-[510px] text-center">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl border border-[var(--border)] bg-white text-[var(--brand)]">
-          <PackageSearch size={22} strokeWidth={1.9} />
-        </div>
-        <h2 className="mt-5 text-[19px] font-semibold tracking-[-0.015em] text-[var(--ink)]">
-          选择左侧分类，直接查原店
-        </h2>
-        <p className="mx-auto mt-2 max-w-[440px] text-[13px] leading-6 text-[var(--muted)]">
-          候选目录只负责找到店铺。表里的售价、库存和上架状态，都来自这次搜索触发的原店响应。
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          {SHORTCUTS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSearch(item.query)}
-              className="ui-control h-9 rounded-lg border border-[var(--border)] bg-white px-3.5 text-[12.5px] font-semibold text-[var(--text)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+    <div className="pt-12">
+      <div className="text-[14px] font-medium text-[var(--faint)]">快捷分类</div>
+      <div className="mt-5 flex flex-wrap gap-3.5">
+        {SHORTCUTS.map((item, index) => (
+          <motion.button
+            key={item.id}
+            type="button"
+            onClick={() => onSearch(item.query)}
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 + index * 0.06, ease: [0.22, 1, 0.36, 1] }}
+            className="cat-btn rounded-full px-7 py-4 text-left"
+          >
+            <span className="text-[18px] font-bold tracking-[-0.01em]">{item.label}</span>
+            <span className="ml-3 text-[13.5px] font-normal opacity-55">{item.detail}</span>
+          </motion.button>
+        ))}
       </div>
+      <p className="mt-12 max-w-[520px] text-[14.5px] leading-[1.7] text-[var(--muted)]">
+        比牌只做一件事：同时敲开几十家原店的门，把它们此刻真实返回的售价与库存排成一张榜单。
+        不缓存、不凑数，每一行都来自本轮响应。
+      </p>
     </div>
   )
 }
 
 function NoResults({ challenged }: { challenged: boolean }) {
   return (
-    <div className="flex min-h-[330px] items-center justify-center px-8 text-center">
-      <div className="max-w-[440px]">
-        <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-[var(--surface)] text-[var(--soft)]">
-          {challenged ? <AlertTriangle size={20} /> : <PackageSearch size={20} />}
-        </div>
-        <h3 className="mt-4 text-[15px] font-semibold text-[var(--ink)]">
-          {challenged ? '源站拦截了核验，不代表没货' : '没有找到已核验的有货商品'}
-        </h3>
-        <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--muted)]">
-          {challenged
-            ? '链动小铺当前返回阿里云滑块。点击上方“拖一次，自动重搜”，完成一次真人验证后程序会接管。'
-            : '这里只显示原店本轮明确返回的结果，不会拿缓存商品凑数。'}
-        </p>
+    <div className="px-3 py-16">
+      <div className="text-[20px] font-bold tracking-[-0.015em] text-[var(--ink)]">
+        {challenged ? '源站拦截了核验，不代表没货' : '没有找到已核验的有货商品'}
       </div>
+      <p className="mt-2.5 max-w-[520px] text-[14.5px] leading-[1.7] text-[var(--muted)]">
+        {challenged
+          ? '链动小铺当前返回阿里云滑块。点击上方「拖一次，自动重搜」，完成一次真人验证后程序会接管。'
+          : '这里只显示原店本轮明确返回的结果，不会拿缓存商品凑数。'}
+      </p>
     </div>
   )
 }
 
-function SourceSummary({
-  retail,
-  pickai,
+function CountUp({ value, formatter }: { value: number; formatter: (n: number) => string }) {
+  const reduce = useReducedMotion()
+  const [display, setDisplay] = useState(() => (reduce ? value : 0))
+  useEffect(() => {
+    if (reduce) {
+      setDisplay(value)
+      return
+    }
+    const controls = animate(0, value, {
+      duration: 0.85,
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: (latest) => setDisplay(latest),
+    })
+    return () => controls.stop()
+  }, [value, reduce])
+  return <>{formatter(display)}</>
+}
+
+function StatCol({
+  label,
+  first = false,
+  children,
 }: {
-  retail?: RetailIndexStatus
-  pickai?: PickAIIndexStatus
+  label: string
+  first?: boolean
+  children: ReactNode
 }) {
-  const retailRunning = isRetailIndexRunning(retail)
   return (
-    <div className="border-t border-[var(--border-subtle)] px-4 py-4">
-      <div className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.11em] text-[var(--soft)]">
-        候选目录
-      </div>
-      <div className="space-y-2 text-[11.5px] text-[var(--muted)]">
-        <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5">
-            {retailRunning ? (
-              <LoaderCircle size={12} className="animate-spin motion-reduce:animate-none" />
-            ) : (
-              <i className="h-1.5 w-1.5 rounded-full bg-[var(--success-text)]" />
-            )}
-            零售店
-          </span>
-          <span className="num text-[var(--text)]">
-            {typeof retail?.indexed_shops === 'number'
-              ? retail.indexed_shops.toLocaleString('zh-CN')
-              : '读取中'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5">
-            <i
-              className={clsx(
-                'h-1.5 w-1.5 rounded-full',
-                pickai?.state === 'error' ? 'bg-[var(--danger-text)]' : 'bg-[var(--brand)]',
-              )}
-            />
-            PickAI 分类
-          </span>
-          <span className="num text-[var(--text)]">
-            {typeof pickai?.product_count === 'number'
-              ? pickai.product_count.toLocaleString('zh-CN')
-              : '读取中'}
-          </span>
-        </div>
-      </div>
+    <div className={clsx('min-w-0 flex-1', !first && 'border-l border-[var(--border-2)] pl-9')}>
+      <div className="text-[13.5px] font-medium text-[var(--faint)]">{label}</div>
+      <div className="num-hero mt-2 flex items-baseline gap-2.5 whitespace-nowrap">{children}</div>
     </div>
   )
 }
 
-export function Products({ onOpenSettings }: { onOpenSettings?: () => void }) {
-  const [search, setSearch] = useState('')
-  const [keyword, setKeyword] = useState('')
+export function Products({
+  keyword,
+  searchSeq,
+  onSearch,
+  onOpenSettings,
+}: {
+  keyword: string
+  searchSeq: number
+  onSearch: (query: string) => void
+  onOpenSettings?: () => void
+}) {
+  const qc = useQueryClient()
+  const reduce = useReducedMotion()
+  const [search, setSearch] = useState(keyword)
   const [sort, setSort] = useState<'sale_asc' | 'stock_desc'>('sale_asc')
   const [inStock, setInStock] = useState(true)
   const [platform, setPlatform] = useState<Platform>('all')
   const [page, setPage] = useState(1)
-  const [revision, setRevision] = useState(0)
+  const [refreshSeq, setRefreshSeq] = useState(0)
   const [active, setActive] = useState<Product | null>(null)
   const [verificationPending, setVerificationPending] = useState(false)
   const [verificationMessage, setVerificationMessage] = useState('')
@@ -308,8 +255,12 @@ export function Products({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   const isLive = keyword.trim().length > 0
   const strictRealtimeSearch = isStrictRealtimeSearch(keyword)
-  const activeShortcut = shortcutId(keyword)
-  const activeShortcutInfo = SHORTCUTS.find((item) => item.id === activeShortcut)
+  const activeShortcutInfo = SHORTCUTS.find((item) => item.id === shortcutId(keyword))
+
+  useEffect(() => {
+    setSearch(keyword)
+    setPage(1)
+  }, [keyword, searchSeq])
 
   const searchParams = useMemo(
     () => ({
@@ -324,7 +275,16 @@ export function Products({ onOpenSettings }: { onOpenSettings?: () => void }) {
   )
 
   const liveQuery = useQuery({
-    queryKey: ['strict-realtime-search', revision, keyword, inStock, sort, page, platform],
+    queryKey: [
+      'strict-realtime-search',
+      searchSeq,
+      refreshSeq,
+      keyword,
+      inStock,
+      sort,
+      page,
+      platform,
+    ],
     queryFn: ({ signal }) => api.liveSearch(searchParams, signal),
     enabled: isLive,
     retry: false,
@@ -333,47 +293,19 @@ export function Products({ onOpenSettings }: { onOpenSettings?: () => void }) {
     refetchOnReconnect: false,
   })
 
-  const retailIndexQuery = useQuery({
-    queryKey: ['retail-index'],
-    queryFn: api.retailIndex,
-    retry: false,
-    refetchInterval: (query) => (isRetailIndexRunning(query.state.data) ? 3_000 : false),
-  })
-  const pickaiIndexQuery = useQuery({
-    queryKey: ['pickai-index'],
-    queryFn: api.pickaiIndex,
-    retry: false,
-    refetchInterval: (query) => (query.state.data?.running ? 2_000 : false),
-  })
+  const resultData = liveQuery.data
 
-  const startSearch = useCallback((value: string) => {
-    const next = value.trim()
-    if (!next) return
-    setSearch(next)
-    setKeyword(next)
-    setPage(1)
-    setRevision((current) => current + 1)
-  }, [])
-
-  const commit = () => startSearch(search)
-  const changePage = (next: number) => {
-    setPage(next)
-    setRevision((current) => current + 1)
-  }
-  const changeSort = (next: 'sale_asc' | 'stock_desc') => {
-    setSort(next)
-    setPage(1)
-    if (isLive) setRevision((current) => current + 1)
-  }
-  const toggleStock = () => {
-    setInStock((current) => !current)
-    setPage(1)
-    if (isLive) setRevision((current) => current + 1)
-  }
+  useEffect(() => {
+    if (!resultData) return
+    if (typeof resultData.retail_index?.indexed_shops === 'number')
+      qc.setQueryData(['retail-index'], resultData.retail_index)
+    if (typeof resultData.pickai_index?.product_count === 'number')
+      qc.setQueryData(['pickai-index'], resultData.pickai_index)
+  }, [qc, resultData])
 
   const openPublicVerification = async () => {
     if (!IS_TAURI) {
-      setVerificationMessage('请在比牌桌面版中完成人真验证。')
+      setVerificationMessage('请在比牌桌面版中完成真人验证。')
       return
     }
     setVerificationPending(true)
@@ -399,7 +331,7 @@ export function Products({ onOpenSettings }: { onOpenSettings?: () => void }) {
         setVerificationPending(false)
         setVerificationMessage(event.payload.message)
         setPage(1)
-        setRevision((current) => current + 1)
+        setRefreshSeq((current) => current + 1)
       }),
       listen<{ message: string }>('public-verification-error', (event) => {
         setVerificationPending(false)
@@ -426,7 +358,6 @@ export function Products({ onOpenSettings }: { onOpenSettings?: () => void }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const resultData = liveQuery.data
   const items = (resultData?.items ?? []).filter((product) => product.verified)
   const total = resultData?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / pageSize))
@@ -437,6 +368,10 @@ export function Products({ onOpenSettings }: { onOpenSettings?: () => void }) {
         : lowest,
     null,
   )
+  const inStockCount = items.filter(
+    (product) =>
+      product.stock !== 0 && product.status !== '缺货' && product.status !== '未上架',
+  ).length
   const searching = isLive && liveQuery.isFetching
   const challenged = Boolean(
     resultData?.warnings?.some((warning) =>
@@ -446,340 +381,316 @@ export function Products({ onOpenSettings }: { onOpenSettings?: () => void }) {
     ),
   )
   const title = activeShortcutInfo?.label || (keyword ? `“${keyword}”` : '实时商品搜索')
-  const retailStatus =
-    typeof resultData?.retail_index?.indexed_shops === 'number'
-      ? resultData.retail_index
-      : retailIndexQuery.data
-  const pickaiStatus =
-    typeof resultData?.pickai_index?.product_count === 'number'
-      ? resultData.pickai_index
-      : pickaiIndexQuery.data
 
   useEffect(() => {
-    if (resultData && page > pages) changePage(pages)
-    // changePage intentionally excluded to avoid recreating this correction effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (resultData && page > pages) setPage(pages)
   }, [page, pages, resultData])
 
+  const commit = () => onSearch(search)
+
   return (
-    <div className="flex h-full min-h-0 bg-[var(--page)]">
-      <aside className="flex w-[218px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--panel)]">
-        <div className="px-4 pb-3 pt-5">
-          <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-[var(--soft)]">
-            快捷分类
-          </div>
-          <p className="mt-1 text-[11.5px] leading-5 text-[var(--muted)]">点击后立即发起实时搜索</p>
-        </div>
-
-        <nav className="space-y-1 px-2.5" aria-label="商品快捷分类">
-          {SHORTCUTS.map((item) => {
-            const selected = item.id === activeShortcut
-            const Icon = item.icon
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => startSearch(item.query)}
-                aria-current={selected ? 'page' : undefined}
-                className={clsx(
-                  'category-item group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)]',
-                  selected
-                    ? 'bg-[var(--brand-soft)] text-[var(--brand-strong)]'
-                    : 'text-[var(--text)] hover:bg-[var(--surface)]',
-                )}
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 px-10 pt-8">
+        <div className="mx-auto w-full max-w-[980px]">
+        <div className="flex items-end justify-between gap-6">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-baseline gap-4">
+              <motion.h1
+                key={title}
+                initial={reduce ? false : { y: 28, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                className="t-display truncate"
               >
-                <span
-                  className={clsx(
-                    'grid h-8 w-8 shrink-0 place-items-center rounded-lg border',
-                    selected
-                      ? 'border-[color-mix(in_srgb,var(--brand)_24%,transparent)] bg-white text-[var(--brand)]'
-                      : 'border-[var(--border)] bg-white text-[var(--soft)] group-hover:text-[var(--text)]',
-                  )}
-                >
-                  <Icon size={16} strokeWidth={2} />
+                {title}
+              </motion.h1>
+              {isLive && strictRealtimeSearch && (
+                <span className="inline-flex shrink-0 items-center gap-1.5 text-[13.5px] font-bold text-[var(--ok)]">
+                  <ShieldCheck size={15} />
+                  严格实时
                 </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-semibold">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-[10.5px] text-[var(--soft)]">
-                    {item.detail}
-                  </span>
-                </span>
-                {selected && <i className="ml-auto h-5 w-[2px] rounded-full bg-[var(--brand)]" />}
-              </button>
-            )
-          })}
-        </nav>
-
-        <div className="mx-4 mt-5 rounded-lg border border-[var(--border)] bg-[var(--panel-soft)] p-3">
-          <div className="flex items-center gap-2 text-[11.5px] font-semibold text-[var(--ink)]">
-            <ShieldCheck size={14} className="text-[var(--brand)]" />
-            实时结果规则
-          </div>
-          <p className="mt-1.5 text-[10.5px] leading-[18px] text-[var(--muted)]">
-            PickAI 和本地索引只负责选店。价格、库存只认本轮原店响应。
-          </p>
-        </div>
-
-        <div className="mt-auto">
-          <SourceSummary retail={retailStatus} pickai={pickaiStatus} />
-        </div>
-      </aside>
-
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-[72px] shrink-0 items-center border-b border-[var(--border)] bg-white px-5">
-          <div className="flex h-11 min-w-0 flex-1 items-center rounded-[10px] border border-[var(--border-strong)] bg-[var(--panel-soft)] focus-within:border-[var(--brand)] focus-within:ring-[3px] focus-within:ring-[var(--brand-ring)]">
-            <Search size={18} className="ml-3.5 shrink-0 text-[var(--soft)]" strokeWidth={2} />
-            <input
-              ref={searchInput}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && commit()}
-              placeholder="搜索 K12、ChatGPT Plus、邮箱或 OpenAI 接码"
-              className="h-full min-w-0 flex-1 bg-transparent px-3 text-[13.5px] text-[var(--ink)] outline-none placeholder:text-[var(--placeholder)]"
-            />
-            <kbd className="mr-2 hidden rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-sans text-[10px] text-[var(--soft)] xl:block">
-              Ctrl K
-            </kbd>
-            <button
-              type="button"
-              onClick={commit}
-              disabled={!search.trim() || searching}
-              className="ui-control mr-1 inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--brand)] px-4 text-[12.5px] font-semibold text-white hover:bg-[var(--brand-strong)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {searching ? (
-                <LoaderCircle size={14} className="animate-spin motion-reduce:animate-none" />
-              ) : (
-                <Search size={14} />
               )}
-              搜索
-            </button>
-          </div>
-        </header>
-
-        <div className="flex min-h-0 flex-1 flex-col px-5 pb-5 pt-4">
-          <div className="flex shrink-0 items-end justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <h1 className="truncate text-[20px] font-bold tracking-[-0.025em] text-[var(--ink)]">
-                  {title}
-                </h1>
-                {isLive && strictRealtimeSearch && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--success-bg)] px-2 py-1 text-[10.5px] font-semibold text-[var(--success-text)]">
-                    <ShieldCheck size={11} />
-                    严格实时
-                  </span>
-                )}
-              </div>
-              <div className="mt-1 flex items-center gap-2 text-[11.5px] text-[var(--muted)]">
-                {!isLive ? (
-                  <span>选一个分类，或在上方输入关键词</span>
-                ) : searching ? (
-                  <span className="inline-flex items-center gap-1.5 text-[var(--brand)]">
-                    <LoaderCircle size={12} className="animate-spin motion-reduce:animate-none" />
-                    正在并行核验多家低价原店，首轮通常 4–8 秒
-                  </span>
-                ) : liveQuery.isError ? (
-                  <span className="text-[var(--danger-text)]">本次实时搜索失败</span>
-                ) : challenged ? (
-                  <span className="inline-flex items-center gap-1.5 text-[var(--warning-text)]">
-                    <AlertTriangle size={12} />
-                    原店未完成核验，旧数据已隐藏
-                  </span>
-                ) : (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 text-[var(--success-text)]">
-                      <i className="h-1.5 w-1.5 rounded-full bg-current" />
-                      本轮核验完成
-                    </span>
-                    <span>共 {total.toLocaleString('zh-CN')} 条</span>
-                    {lowestPrice !== null && <span>最低 {cny(lowestPrice)}</span>}
-                    {resultData?.refreshed_at && (
-                      <span className="inline-flex items-center gap-1">
-                        <Clock3 size={11} />
-                        {relTime(resultData.refreshed_at)}
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
             </div>
+            <div className="mt-3 flex items-center gap-2.5 text-[14.5px] text-[var(--muted)]">
+              {!isLive ? (
+                <span>选一个快捷分类，或在下方输入关键词</span>
+              ) : searching ? (
+                <span className="inline-flex items-center gap-1.5 text-[var(--accent)]">
+                  <LoaderCircle size={14} className="animate-spin motion-reduce:animate-none" />
+                  正在并行核验多家低价原店，首轮通常 4-8 秒
+                </span>
+              ) : liveQuery.isError ? (
+                <span className="text-[var(--bad)]">本次实时搜索失败</span>
+              ) : challenged ? (
+                <span className="inline-flex items-center gap-1.5 text-[var(--warn)]">
+                  <AlertTriangle size={14} />
+                  原店未完成核验，旧数据已隐藏
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 text-[var(--muted)]">
+                  <Dot tone="ok" />
+                  本轮核验完成，价格与库存来自原店实时响应
+                </span>
+              )}
+            </div>
+          </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              <select
-                value={platform}
-                onChange={(event) => {
-                  setPlatform(event.target.value as Platform)
-                  setPage(1)
-                  if (isLive) setRevision((current) => current + 1)
-                }}
-                aria-label="搜索来源"
-                className="h-8 rounded-lg border border-[var(--border)] bg-white px-2 text-[11.5px] font-medium text-[var(--text)] outline-none focus:border-[var(--brand)]"
-              >
-                <option value="all">全部来源</option>
-                <option value="ldxp">链动小铺</option>
-                <option value="catfk">云猫寄售</option>
-              </select>
-              <div className="flex rounded-lg border border-[var(--border)] bg-white p-0.5">
-                <button
-                  type="button"
-                  onClick={() => changeSort('sale_asc')}
-                  className={clsx(
-                    'h-7 rounded-md px-2.5 text-[11.5px] font-semibold',
-                    sort === 'sale_asc'
-                      ? 'bg-[var(--surface-selected)] text-[var(--ink)]'
-                      : 'text-[var(--soft)] hover:text-[var(--text)]',
-                  )}
+          {isLive && (
+            <div className="flex shrink-0 items-center gap-7 pb-1.5">
+              <div className="relative">
+                <select
+                  value={platform}
+                  onChange={(event) => {
+                    setPlatform(event.target.value as Platform)
+                    setPage(1)
+                  }}
+                  aria-label="搜索来源"
+                  className="ui-control cursor-pointer appearance-none bg-transparent pr-5 text-[14px] font-medium text-[var(--muted)] outline-none hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--blue)]"
                 >
-                  最低价
-                </button>
-                <button
-                  type="button"
-                  onClick={() => changeSort('stock_desc')}
-                  className={clsx(
-                    'h-7 rounded-md px-2.5 text-[11.5px] font-semibold',
-                    sort === 'stock_desc'
-                      ? 'bg-[var(--surface-selected)] text-[var(--ink)]'
-                      : 'text-[var(--soft)] hover:text-[var(--text)]',
-                  )}
-                >
-                  库存
-                </button>
+                  <option value="all">全部来源</option>
+                  <option value="ldxp">链动小铺</option>
+                  <option value="catfk">云猫寄售</option>
+                </select>
+                <ChevronDown
+                  size={14}
+                  className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-[var(--faint)]"
+                />
               </div>
-              <button
-                type="button"
-                onClick={toggleStock}
-                aria-pressed={inStock}
-                className={clsx(
-                  'ui-control inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11.5px] font-semibold',
-                  inStock
-                    ? 'border-[color-mix(in_srgb,var(--brand)_28%,var(--border))] bg-[var(--brand-soft)] text-[var(--brand-strong)]'
-                    : 'border-[var(--border)] bg-white text-[var(--soft)]',
-                )}
-              >
-                <CheckCircle2 size={13} />
+              <div className="flex items-center gap-5">
+                {(
+                  [
+                    { key: 'sale_asc', label: '最低价' },
+                    { key: 'stock_desc', label: '库存' },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => {
+                      setSort(option.key)
+                      setPage(1)
+                    }}
+                    className={clsx(
+                      'ui-control relative pb-1 text-[14px] leading-none',
+                      sort === option.key
+                        ? 'font-bold text-[var(--ink)] after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-[var(--ink)]'
+                        : 'font-medium text-[var(--muted)] hover:text-[var(--ink)]',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <label className="flex cursor-pointer select-none items-center gap-2.5 text-[14px] font-medium text-[var(--text)]">
+                <Switch
+                  checked={inStock}
+                  onChange={() => {
+                    setInStock((current) => !current)
+                    setPage(1)
+                  }}
+                />
                 仅看有货
-              </button>
-              {isLive && !searching && (
-                <button
-                  type="button"
-                  onClick={() => setRevision((current) => current + 1)}
+              </label>
+              {!searching && (
+                <IconButton
+                  onClick={() => setRefreshSeq((current) => current + 1)}
                   aria-label="重新实时核验"
                   title="重新实时核验"
-                  className="ui-control grid h-8 w-8 place-items-center rounded-lg border border-[var(--border)] bg-white text-[var(--soft)] hover:border-[var(--brand)] hover:text-[var(--brand)]"
                 >
-                  <RefreshCw size={14} />
-                </button>
+                  <RefreshCw size={16} />
+                </IconButton>
               )}
-            </div>
-          </div>
-
-          {isLive && !searching && Boolean(resultData?.warnings?.length) && (
-            <div className="mt-3 flex shrink-0 items-start gap-2 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-[11.5px] leading-5 text-[var(--warning-text)]">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-              <span className="min-w-0 flex-1">
-                {resultData?.warnings?.join('；')}
-                {challenged && ' 已隐藏所有未核验的旧价格和延迟库存。'}
-                {challenged && verificationMessage && (
-                  <span className="ml-1 font-semibold">{verificationMessage}</span>
-                )}
-              </span>
-              {challenged && (
-                <button
-                  type="button"
-                  onClick={() => void openPublicVerification()}
-                  disabled={verificationPending}
-                  className="ui-control inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--warning-border)] bg-white px-3 font-semibold text-[var(--warning-text)] shadow-sm hover:border-[var(--warning-text)] disabled:cursor-wait disabled:opacity-65"
-                >
-                  {verificationPending ? (
-                    <LoaderCircle size={13} className="animate-spin motion-reduce:animate-none" />
-                  ) : (
-                    <ShieldCheck size={13} />
-                  )}
-                  {verificationPending ? '等你拖滑块' : '拖一次，自动重搜'}
-                </button>
-              )}
-              {onOpenSettings &&
-                resultData?.warnings?.some((warning) =>
-                  /Merchant-Token|未登录|登录已失效|重新登录/i.test(warning),
-                ) && (
-                  <button
-                    type="button"
-                    onClick={onOpenSettings}
-                    className="shrink-0 font-semibold underline underline-offset-2"
-                  >
-                    连接设置
-                  </button>
-                )}
             </div>
           )}
+        </div>
 
-          <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-[var(--border)] bg-white">
-            <div
-              className={clsx(
-                'grid h-10 shrink-0 items-center gap-4 border-b border-[var(--border)] bg-[var(--table-head)] px-5 text-[10.5px] font-bold uppercase tracking-[0.06em] text-[var(--soft)]',
-                GRID,
+        <div className="search-line mt-7 flex items-center gap-5 pb-3.5">
+          <input
+            ref={searchInput}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && commit()}
+            placeholder="输入 K12、ChatGPT Plus、邮箱或 OpenAI 接码"
+            className="min-w-0 flex-1 bg-transparent text-[clamp(17px,1.6vw,21px)] font-medium tracking-[-0.01em] text-[var(--ink)] outline-none placeholder:text-[var(--placeholder)]"
+          />
+          <kbd className="num hidden shrink-0 text-[12px] font-semibold tracking-[0.06em] text-[var(--faint)] lg:block">
+            CTRL K
+          </kbd>
+          <button
+            type="button"
+            onClick={commit}
+            disabled={!search.trim() || searching}
+            aria-label="搜索"
+            className="ui-control grid h-11 w-11 shrink-0 place-items-center bg-[var(--ink)] text-[var(--bone)] hover:bg-[var(--blue)] disabled:pointer-events-none disabled:opacity-30"
+          >
+            {searching ? (
+              <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" />
+            ) : (
+              <ArrowRight size={19} strokeWidth={2.2} />
+            )}
+          </button>
+        </div>
+
+        {isLive && !liveQuery.isError && (
+          <div className="flex gap-9 pb-7 pt-7">
+            {searching ? (
+              Array.from({ length: 4 }, (_, index) => (
+                <div
+                  key={index}
+                  className={clsx(
+                    'flex-1 animate-pulse motion-reduce:animate-none',
+                    index > 0 && 'border-l border-[var(--border-2)] pl-9',
+                  )}
+                >
+                  <i className="block h-3.5 w-20 rounded bg-[var(--surface)]" />
+                  <i className="mt-3 block h-9 w-28 rounded bg-[var(--surface)]" />
+                </div>
+              ))
+            ) : (
+              <>
+                <StatCol label="已核验商品" first>
+                  <CountUp value={total} formatter={(n) => Math.round(n).toLocaleString('zh-CN')} />
+                </StatCol>
+                <StatCol label="本轮最低价">
+                  {lowestPrice !== null ? (
+                    <>
+                      <span className="text-[var(--blue)]">
+                        <CountUp value={lowestPrice} formatter={cny} />
+                      </span>
+                      <span className="text-[14px] font-bold tracking-normal text-[var(--blue)]">
+                        最低
+                      </span>
+                    </>
+                  ) : (
+                    '-'
+                  )}
+                </StatCol>
+                <StatCol label="本页有货">
+                  <CountUp
+                    value={inStockCount}
+                    formatter={(n) => Math.round(n).toLocaleString('zh-CN')}
+                  />
+                  <span className="text-[18px] font-bold text-[var(--faint)]">/ {items.length}</span>
+                </StatCol>
+                <StatCol label="核验时间">
+                  <span className="tracking-[-0.02em]">
+                    {resultData?.refreshed_at ? relTime(resultData.refreshed_at) : '刚刚'}
+                  </span>
+                </StatCol>
+              </>
+            )}
+          </div>
+        )}
+
+        {isLive && !searching && Boolean(resultData?.warnings?.length) && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-[var(--warn-border)] bg-[var(--warn-bg)] px-3.5 py-3 text-[13.5px] leading-[1.55] text-[var(--warn)]">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+            <span className="min-w-0 flex-1">
+              {resultData?.warnings?.join('；')}
+              {challenged && ' 已隐藏所有未核验的旧价格和延迟库存。'}
+              {challenged && verificationMessage && (
+                <span className="ml-1 font-medium">{verificationMessage}</span>
               )}
-            >
-              <div>商品与商家</div>
-              <div className="text-right">当前售价</div>
-              <div>原店库存</div>
-              <div className="text-right">操作</div>
-            </div>
+            </span>
+            {challenged && (
+              <button
+                type="button"
+                onClick={() => void openPublicVerification()}
+                disabled={verificationPending}
+                className="ui-control inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--warn-border)] bg-[var(--card)] px-3 text-[13px] font-medium text-[var(--warn)] hover:border-[var(--warn)] disabled:cursor-wait disabled:opacity-60"
+              >
+                {verificationPending ? (
+                  <LoaderCircle size={13} className="animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <ShieldCheck size={13} />
+                )}
+                {verificationPending ? '等你拖滑块' : '拖一次，自动重搜'}
+              </button>
+            )}
+            {onOpenSettings &&
+              resultData?.warnings?.some((warning) =>
+                /Merchant-Token|未登录|登录已失效|重新登录/i.test(warning),
+              ) && (
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="shrink-0 font-medium underline underline-offset-2"
+                >
+                  连接设置
+                </button>
+              )}
+          </div>
+        )}
+        </div>
+      </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {!isLive ? (
-                <InitialState onSearch={startSearch} />
-              ) : searching ? (
+      <div className="min-h-0 flex-1 overflow-y-auto px-10 pb-4">
+        <div className="mx-auto w-full max-w-[980px]">
+          {!isLive ? (
+            <InitialState onSearch={onSearch} reduceMotion={Boolean(reduce)} />
+          ) : (
+            <div className="border-t-2 border-[var(--rule)]">
+              {searching ? (
                 <LoadingRows />
               ) : liveQuery.isError ? (
-                <div className="flex min-h-[330px] items-center justify-center px-8 text-center">
-                  <div>
-                    <AlertTriangle className="mx-auto text-[var(--danger-text)]" size={22} />
-                    <h3 className="mt-3 text-[15px] font-semibold text-[var(--ink)]">实时搜索失败</h3>
-                    <p className="mt-1 text-[12px] text-[var(--muted)]">
-                      没有展示缓存结果。点击右上角刷新后重新核验。
-                    </p>
+                <div className="px-3 py-16">
+                  <div className="text-[20px] font-bold tracking-[-0.015em] text-[var(--ink)]">
+                    实时搜索失败
                   </div>
+                  <p className="mt-2.5 text-[14.5px] text-[var(--muted)]">
+                    没有展示缓存结果。点击右上角刷新后重新核验。
+                  </p>
                 </div>
               ) : items.length === 0 ? (
                 <NoResults challenged={challenged} />
               ) : (
-                items.map((product) => (
-                  <ProductRow key={product.id} product={product} onOpen={setActive} />
+                items.map((product, index) => (
+                  <ProductRow
+                    key={product.id}
+                    product={product}
+                    rank={index + 1}
+                    reduceMotion={Boolean(reduce)}
+                    isLowest={lowestPrice !== null && product.sale_price === lowestPrice}
+                    onOpen={setActive}
+                  />
                 ))
               )}
             </div>
-
-            {isLive && !searching && total > 0 && (
-              <footer className="flex h-12 shrink-0 items-center justify-between border-t border-[var(--border)] px-5 text-[11.5px] text-[var(--soft)]">
-                <span>
-                  第 {page} / {pages} 页，本页 {items.length} 条已核验
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() => changePage(page - 1)}
-                    className="ui-control inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--border)] bg-white px-2.5 font-semibold text-[var(--text)] disabled:opacity-35"
-                  >
-                    <ChevronLeft size={13} />
-                    上一页
-                  </button>
-                  <button
-                    type="button"
-                    disabled={page >= pages}
-                    onClick={() => changePage(page + 1)}
-                    className="ui-control inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--border)] bg-white px-2.5 font-semibold text-[var(--text)] disabled:opacity-35"
-                  >
-                    下一页
-                    <ChevronRight size={13} />
-                  </button>
-                </div>
-              </footer>
-            )}
-          </div>
+          )}
         </div>
-      </section>
+      </div>
+
+      {isLive && !searching && total > 0 && (
+        <footer className="shrink-0 border-t border-[var(--border)] px-10">
+          <div className="mx-auto flex h-14 w-full max-w-[980px] items-center justify-between text-[13.5px] text-[var(--muted)]">
+            <span>
+              第 <span className="num font-semibold text-[var(--ink)]">{page}</span> /{' '}
+              <span className="num font-semibold text-[var(--ink)]">{pages}</span> 页，本页{' '}
+              <span className="num font-semibold text-[var(--ink)]">{items.length}</span> 条已核验
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                <ChevronLeft size={14} />
+                上一页
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={page >= pages}
+                onClick={() => setPage(page + 1)}
+              >
+                下一页
+                <ChevronRight size={14} />
+              </Button>
+            </div>
+          </div>
+        </footer>
+      )}
 
       {active && (
         <Suspense fallback={null}>

@@ -54,6 +54,10 @@ Thumbs.db
 !/frontend/public/app-icons/32x32.png
 !/frontend/public/app-icons/128x128@2x.png
 
-# Keep one curated public preview; ignore test/debug captures.
+# Keep curated public previews; ignore test/debug captures.
 /screenshots/*
 !/screenshots/app.png
+!/screenshots/shops.png
+!/screenshots/settings.png
+!/screenshots/results.png
+/frontend/src-tauri/binaries/*.zip

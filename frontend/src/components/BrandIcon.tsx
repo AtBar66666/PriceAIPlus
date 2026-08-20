@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react'
-import { CATEGORY_COLOR } from '../lib/format'
 
 /**
- * 依据商品名关键词推断平台，展示统一风格的内联品牌图标（离线可用，单色跟随浅底方块）。
- * 匹配优先级：Claude → Gemini/Google → Grok → OpenAI → 邮箱 → 兜底（品类色首字母）
+ * 依据商品名关键词推断平台，展示统一墨色的内联品牌章（离线可用）。
+ * 匹配优先级：Claude → Gemini/Google → Grok → OpenAI → 邮箱 → 兜底（首字母）
  */
 
-type Brand = { key: string; color: string; glyph: ReactNode }
+type Brand = { key: string; glyph: ReactNode }
 
 const OpenAI = (
   <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden>
@@ -41,12 +40,13 @@ const Mail = (
   </svg>
 )
 
+/* 极简：品牌章统一中性灰，靠字形区分 */
 const BRANDS: { test: RegExp; brand: Brand }[] = [
-  { test: /claude|anthropic|sonnet|\bopus\b|haiku/i, brand: { key: 'claude', color: '#c9743f', glyph: Claude } },
-  { test: /gemini|谷歌|google|bard/i, brand: { key: 'gemini', color: '#4285f4', glyph: Gemini } },
-  { test: /grok/i, brand: { key: 'grok', color: '#1b2223', glyph: Grok } },
-  { test: /gpt|chatgpt|openai|codex|sub2api|k12|bug\s*team|team\s*bug/i, brand: { key: 'openai', color: '#10a37f', glyph: OpenAI } },
-  { test: /邮箱|mail|icloud|outlook|gmail|hotmail|@/i, brand: { key: 'mail', color: '#5f7488', glyph: Mail } },
+  { test: /claude|anthropic|sonnet|\bopus\b|haiku/i, brand: { key: 'claude', glyph: Claude } },
+  { test: /gemini|谷歌|google|bard/i, brand: { key: 'gemini', glyph: Gemini } },
+  { test: /grok/i, brand: { key: 'grok', glyph: Grok } },
+  { test: /gpt|chatgpt|openai|codex|sub2api|k12|bug\s*team|team\s*bug/i, brand: { key: 'openai', glyph: OpenAI } },
+  { test: /邮箱|mail|icloud|outlook|gmail|hotmail|@/i, brand: { key: 'mail', glyph: Mail } },
 ]
 
 function initial(name?: string): string {
@@ -55,36 +55,12 @@ function initial(name?: string): string {
   return m ? m[0].toUpperCase() : '#'
 }
 
-export function BrandIcon({ name, category }: { name: string; category: string }) {
+export function BrandIcon({ name }: { name: string; category?: string }) {
   const hit = BRANDS.find((b) => b.test.test(name))
 
-  if (hit) {
-    const c = hit.brand.color
-    return (
-      <span
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px]"
-        style={{
-          color: c,
-          background: `color-mix(in srgb, ${c} 13%, white)`,
-          boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${c} 20%, transparent)`,
-        }}
-      >
-        {hit.brand.glyph}
-      </span>
-    )
-  }
-
-  const c = CATEGORY_COLOR[category] ?? '#7b8283'
   return (
-    <span
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] text-[16px] font-bold"
-      style={{
-        color: c,
-        background: `color-mix(in srgb, ${c} 14%, white)`,
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${c} 20%, transparent)`,
-      }}
-    >
-      {initial(name)}
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--surface)] text-[14px] font-semibold text-[var(--text)]">
+      {hit ? hit.brand.glyph : initial(name)}
     </span>
   )
 }
